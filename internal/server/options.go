@@ -1,0 +1,64 @@
+// Copyright 2018 The NATS Authors
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package server
+
+import (
+	"flag"
+	"fmt"
+	"os"
+)
+
+// Options for the server.
+type Options struct {
+	// NoSignals marks whether to enable the signal handler.
+	NoSignals bool
+
+	// Debug enables debug messages.
+	Debug bool
+}
+
+func ConfigureOptions(args []string) (*Options, error) {
+	fs := flag.NewFlagSet(AppName, flag.ExitOnError)
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage: %s [options...]\n\n", AppName)
+		fs.PrintDefaults()
+		fmt.Fprintf(os.Stderr, "\n")
+	}
+
+	var (
+		showVersion bool
+		showHelp    bool
+		opts        *Options = &Options{}
+	)
+	fs.BoolVar(&showHelp, "h", false, "Show this message.")
+	fs.BoolVar(&showHelp, "help", false, "Show this message.")
+	fs.BoolVar(&showVersion, "version", false, "Print version information.")
+	fs.BoolVar(&showVersion, "v", false, "Print version information.")
+	fs.BoolVar(&opts.Debug, "D", false, "Enable Debug logging.")
+	fs.BoolVar(&opts.Debug, "debug", false, "Enable Debug logging.")
+
+	if err := fs.Parse(args); err != nil {
+		return nil, err
+	}
+	if showVersion {
+		fmt.Fprintf(os.Stderr, "%s v%s\n", AppName, Version)
+		os.Exit(0)
+	}
+
+	if showHelp {
+		flag.Usage()
+		os.Exit(0)
+	}
+	return opts, nil
+}

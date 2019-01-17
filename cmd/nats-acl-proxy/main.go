@@ -15,22 +15,22 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
-	"runtime"
 
 	"github.com/nats-io/nats-acl-proxy/internal/server"
 )
 
 func main() {
-	// Use flags to define the options
-	opts := &server.Options{}
-
+	opts, err := server.ConfigureOptions(os.Args[1:])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		os.Exit(1)
+	}
 	s := server.NewServer(opts)
-	log.Printf("Starting NATS ACL Proxy v%s\n", server.Version)
-	log.Printf("Go Version: %s\n", runtime.Version())
 
-	err := s.Run(context.Background())
+	err = s.Run(context.Background())
 	if err != nil && err != context.Canceled {
 		log.Println(err.Error())
 		os.Exit(1)

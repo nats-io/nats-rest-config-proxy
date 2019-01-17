@@ -22,13 +22,10 @@ import (
 	"syscall"
 )
 
-const Version = "0.0.1"
-
-// Options for the server.
-type Options struct {
-	// NoSignals marks whether to enable the signal handler.
-	NoSignals bool
-}
+const (
+	Version = "0.0.1"
+	AppName = "nats-acl-proxy"
+)
 
 // Server is the server.
 type Server struct {
@@ -82,6 +79,7 @@ func (s *Server) SetupSignalHandler(ctx context.Context) {
 
 // Run starts the server.
 func (s *Server) Run(ctx context.Context) error {
+	log.Printf("Starting %s v%s\n", AppName, Version)
 	if !s.opts.NoSignals {
 		go s.SetupSignalHandler(ctx)
 	}
