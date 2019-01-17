@@ -34,7 +34,7 @@ type Server struct {
 	// opts is the set of options.
 	opts *Options
 
-	// quit stops the controller.
+	// quit stops the server.
 	quit func()
 }
 
@@ -45,35 +45,6 @@ func NewServer(opts *Options) *Server {
 	}
 	return &Server{
 		opts: opts,
-	}
-}
-
-// SetupSignalHandler enables handling process signals.
-func (s *Server) SetupSignalHandler(ctx context.Context) {
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-
-	for sig := range sigCh {
-		log.Printf("Trapped '%v' signal\n", sig)
-
-		// If main context already done, then just skip
-		select {
-		case <-ctx.Done():
-			continue
-		default:
-		}
-
-		switch sig {
-		case syscall.SIGINT:
-			log.Printf("Exiting...")
-			os.Exit(0)
-			return
-		case syscall.SIGTERM:
-			// Gracefully shutdown the controller.  This blocks
-			// until all controllers have stopped running.
-			s.Shutdown()
-			return
-		}
 	}
 }
 
@@ -103,4 +74,32 @@ func (s *Server) Shutdown() {
 	s.quit()
 	log.Println("Bye")
 	return
+}
+
+// SetupSignalHandler enables handling process signals.
+func (s *Server) SetupSignalHandler(ctx context.Context) {
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+
+	for sig := range sigCh {
+		log.Printf("Trapped '%v' signal\n", sig)
+
+		// If main context already done, then just skip
+		select {
+		case <-ctx.Done():
+			continue
+		default:
+		}
+
+		switch sig {
+		case syscall.SIGINT:
+			log.Printf("Exiting...")
+			os.Exit(0)
+			return
+		case syscall.SIGTERM:
+			// Gracefully shutdown the server.
+			s.Shutdown()
+			return
+		}
+	}
 }

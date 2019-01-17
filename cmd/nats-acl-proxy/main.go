@@ -28,8 +28,8 @@ func main() {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
 	}
-	s := server.NewServer(opts)
 
+	s := server.NewServer(opts)
 	err = s.Run(context.Background())
 	if err != nil && err != context.Canceled {
 		log.Println(err.Error())
