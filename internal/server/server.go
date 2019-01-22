@@ -105,7 +105,7 @@ func (s *Server) SetupSignalHandler(ctx context.Context) {
 
 		switch sig {
 		case syscall.SIGINT:
-			s.log.Debugf("Exiting...")
+			s.log.Infof("Exiting...")
 			os.Exit(0)
 			return
 		case syscall.SIGTERM:
