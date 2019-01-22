@@ -39,6 +39,9 @@ type Options struct {
 
 	// Port is the network port for the server.
 	Port int
+
+	// LogFile is the log file.
+	LogFile string
 }
 
 var DefaultOptions = &Options{
@@ -150,6 +153,12 @@ func (opts *Options) ProcessConfigFile(configFile string) error {
 						return fmt.Errorf("invalid config option: %+v", v)
 					}
 					opts.Trace = o
+				case "file":
+					o, ok := v.(string)
+					if !ok {
+						return fmt.Errorf("invalid config option: %+v", v)
+					}
+					opts.LogFile = o
 				}
 			}
 		}

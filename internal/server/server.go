@@ -19,6 +19,8 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+
+	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 )
 
 const (
@@ -54,10 +56,22 @@ func NewServer(opts *Options) *Server {
 }
 
 func (s *Server) configureLogger(opts *Options) {
-	logger := NewDefaultLogger()
-	logger.debug = opts.Debug
-	logger.trace = opts.Trace
-	s.log = logger
+	l := NewDefaultLogger()
+	l.debug = opts.Debug
+	l.trace = opts.Trace
+
+	if opts.LogFile != "" {
+		lj := &lumberjack.Logger{
+			Filename:   opts.LogFile,
+			// TODO: Parameterize rest of options.
+			// MaxSize:    500, // megabytes
+			// MaxBackups: 3,
+			// MaxAge:     28,   //days
+			// Compress:   true, // disabled by default
+		}
+		l.logger.SetOutput(lj)
+	}
+	s.log = l
 }
 
 // Run starts the server.
