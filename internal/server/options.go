@@ -119,6 +119,39 @@ func (opts *Options) ProcessConfigFile(configFile string) error {
 					return err
 				}
 			}
+		case "logging":
+			m, ok := v.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("invalid config option: %+v", v)
+			}
+			for k, v := range m {
+				switch k {
+				case "level":
+					o, ok := v.(string)
+					if !ok {
+						return fmt.Errorf("invalid config option: %+v", v)
+					}
+					switch o {
+					case "debug":
+						opts.Debug = true
+					case "trace":
+						opts.Debug = true
+						opts.Trace = true
+					}
+				case "debug":
+					o, ok := v.(bool)
+					if !ok {
+						return fmt.Errorf("invalid config option: %+v", v)
+					}
+					opts.Debug = o
+				case "trace":
+					o, ok := v.(bool)
+					if !ok {
+						return fmt.Errorf("invalid config option: %+v", v)
+					}
+					opts.Trace = o
+				}
+			}
 		}
 	}
 
