@@ -15,7 +15,6 @@ package server
 
 import (
 	"context"
-	"log"
 	"os"
 	"os/signal"
 	"sync"
@@ -36,6 +35,9 @@ type Server struct {
 
 	// quit stops the server.
 	quit func()
+
+	// log is the Logger from the server.
+	log Logger
 }
 
 // NewServer returns a configured server.
@@ -43,14 +45,24 @@ func NewServer(opts *Options) *Server {
 	if opts == nil {
 		opts = &Options{}
 	}
-	return &Server{
+	s := &Server{
 		opts: opts,
 	}
+	s.configureLogger(opts)
+
+	return s
+}
+
+func (s *Server) configureLogger(opts *Options) {
+	logger := NewDefaultLogger()
+	logger.debug = opts.Debug
+	logger.trace = opts.Trace
+	s.log = logger
 }
 
 // Run starts the server.
 func (s *Server) Run(ctx context.Context) error {
-	log.Printf("Starting %s v%s\n", AppName, Version)
+	s.log.Infof("Starting %s v%s\n", AppName, Version)
 	if !s.opts.NoSignals {
 		go s.SetupSignalHandler(ctx)
 	}
@@ -72,7 +84,7 @@ func (s *Server) Run(ctx context.Context) error {
 // Shutdown stops the controller.
 func (s *Server) Shutdown() {
 	s.quit()
-	log.Println("Bye")
+	s.log.Infof("Bye...")
 	return
 }
 
@@ -82,7 +94,7 @@ func (s *Server) SetupSignalHandler(ctx context.Context) {
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
 	for sig := range sigCh {
-		log.Printf("Trapped '%v' signal\n", sig)
+		s.log.Debugf("Trapped '%v' signal\n", sig)
 
 		// If main context already done, then just skip
 		select {
@@ -93,7 +105,7 @@ func (s *Server) SetupSignalHandler(ctx context.Context) {
 
 		switch sig {
 		case syscall.SIGINT:
-			log.Printf("Exiting...")
+			s.log.Debugf("Exiting...")
 			os.Exit(0)
 			return
 		case syscall.SIGTERM:
