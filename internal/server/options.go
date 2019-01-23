@@ -44,14 +44,6 @@ type Options struct {
 	LogFile string
 }
 
-var DefaultOptions = &Options{
-	NoSignals: false,
-	Debug:     false,
-	Trace:     false,
-	Host:      "0.0.0.0",
-	Port:      2222,
-}
-
 func ConfigureOptions(args []string) (*Options, error) {
 	fs := flag.NewFlagSet(AppName, flag.ExitOnError)
 	flag.Usage = func() {
@@ -64,7 +56,7 @@ func ConfigureOptions(args []string) (*Options, error) {
 		showVersion bool
 		showHelp    bool
 		configFile  string
-		opts        *Options = DefaultOptions
+		opts        *Options = &Options{}
 	)
 	fs.BoolVar(&showHelp, "h", false, "Show this message.")
 	fs.BoolVar(&showHelp, "help", false, "Show this message.")
@@ -74,10 +66,12 @@ func ConfigureOptions(args []string) (*Options, error) {
 	fs.StringVar(&configFile, "config", "", "Configuration file.")
 	fs.BoolVar(&opts.Debug, "D", false, "Enable Debug logging.")
 	fs.BoolVar(&opts.Debug, "debug", false, "Enable Debug logging.")
-	fs.StringVar(&opts.Host, "addr", "", "Network host to listen on.")
-	fs.StringVar(&opts.Host, "a", "", "Network host to listen on.")
-	fs.IntVar(&opts.Port, "port", 0, "Port to listen on.")
-	fs.IntVar(&opts.Port, "p", 0, "Port to listen on.")
+	fs.BoolVar(&opts.Trace, "V", false, "Enable Trace logging.")
+	fs.BoolVar(&opts.Trace, "trace", false, "Enable Trace logging.")
+	fs.StringVar(&opts.Host, "addr", "0.0.0.0", "Network host to listen on.")
+	fs.StringVar(&opts.Host, "a", "0.0.0.0", "Network host to listen on.")
+	fs.IntVar(&opts.Port, "port", 4567, "Port to listen on.")
+	fs.IntVar(&opts.Port, "p", 4567, "Port to listen on.")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, err

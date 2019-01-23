@@ -15,10 +15,15 @@ package server
 
 import (
 	"context"
+	"fmt"
+	"net"
+	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"sync"
 	"syscall"
+	"time"
 
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 )
@@ -57,10 +62,10 @@ func (s *Server) Run(ctx context.Context) error {
 	if !s.opts.NoSignals {
 		go s.SetupSignalHandler(ctx)
 	}
-	// Set up cancellation context for the main loop.
+	// Cancellation context for the main loop.
 	ctx, cancelFn := context.WithCancel(ctx)
 
-	// Set up logging configuration.
+	// Logging configuration.
 	l := NewDefaultLogger()
 	l.debug = s.opts.Debug
 	l.trace = s.opts.Trace
@@ -83,14 +88,53 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 	s.log = l
 
-	s.log.Infof("Starting %s v%s\n", AppName, Version)
+	s.log.Infof("Starting %s v%s", AppName, Version)
+	addr := net.JoinHostPort(s.opts.Host, strconv.Itoa(s.opts.Port))
+	err := s.ListenAndServe(addr)
+	if err != nil {
+		defer s.quit()
+		return err
+	}
+	s.log.Infof("Listening on %s", addr)
+
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
 }
 
-// Shutdown stops the server..
+// ListenAndServe takes the network address and port that
+// the HTTP server should bind to and starts it.
+func (s *Server) ListenAndServe(addr string) error {
+	mux := http.NewServeMux()
+
+	// GET /
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		// See: https://golang.org/pkg/net/http/#ServeMux.Handle
+		if r.URL.Path != "/" {
+			http.NotFound(w, r)
+			return
+		}
+		fmt.Fprintf(w, fmt.Sprintf("%s v%s\n", AppName, Version))
+	})
+
+	l, err := net.Listen("tcp", addr)
+	if err != nil {
+		return err
+	}
+	srv := &http.Server{
+		Addr:           addr,
+		Handler:        mux,
+		ReadTimeout:    10 * time.Second,
+		WriteTimeout:   10 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+	}
+	go srv.Serve(l)
+
+	return nil
+}
+
+// Shutdown stops the server.
 func (s *Server) Shutdown() {
 	s.log.Infof("Shutting down...")
 	s.quit()
