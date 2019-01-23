@@ -39,7 +39,7 @@ type Server struct {
 	quit func()
 
 	// log is the Logger from the server.
-	log Logger
+	log *logger
 }
 
 // NewServer returns a configured server.
@@ -47,22 +47,26 @@ func NewServer(opts *Options) *Server {
 	if opts == nil {
 		opts = &Options{}
 	}
-	s := &Server{
+	return &Server{
 		opts: opts,
 	}
-	s.configureLogger(opts)
-
-	return s
 }
 
-func (s *Server) configureLogger(opts *Options) {
-	l := NewDefaultLogger()
-	l.debug = opts.Debug
-	l.trace = opts.Trace
+// Run starts the server.
+func (s *Server) Run(ctx context.Context) error {
+	if !s.opts.NoSignals {
+		go s.SetupSignalHandler(ctx)
+	}
+	// Set up cancellation context for the main loop.
+	ctx, cancelFn := context.WithCancel(ctx)
 
-	if opts.LogFile != "" {
+	// Set up logging configuration.
+	l := NewDefaultLogger()
+	l.debug = s.opts.Debug
+	l.trace = s.opts.Trace
+	if s.opts.LogFile != "" {
 		lj := &lumberjack.Logger{
-			Filename:   opts.LogFile,
+			Filename: s.opts.LogFile,
 			// TODO: Parameterize rest of options.
 			// MaxSize:    500, // megabytes
 			// MaxBackups: 3,
@@ -70,35 +74,26 @@ func (s *Server) configureLogger(opts *Options) {
 			// Compress:   true, // disabled by default
 		}
 		l.logger.SetOutput(lj)
+		s.quit = func() {
+			lj.Close()
+			cancelFn()
+		}
+	} else {
+		s.quit = func() { cancelFn() }
 	}
 	s.log = l
-}
 
-// Run starts the server.
-func (s *Server) Run(ctx context.Context) error {
 	s.log.Infof("Starting %s v%s\n", AppName, Version)
-	if !s.opts.NoSignals {
-		go s.SetupSignalHandler(ctx)
-	}
-
-	// Set up cancellation context for the main loop.
-	ctx, cancelFn := context.WithCancel(ctx)
-
-	s.quit = func() {
-		// Signal cancellation of the main context.
-		cancelFn()
-	}
-
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
 }
 
-// Shutdown stops the controller.
+// Shutdown stops the server..
 func (s *Server) Shutdown() {
+	s.log.Infof("Shutting down...")
 	s.quit()
-	s.log.Infof("Bye...")
 	return
 }
 
