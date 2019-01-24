@@ -45,6 +45,9 @@ type Server struct {
 
 	// log is the Logger from the server.
 	log *logger
+
+	// http is the http server.
+	http *http.Server
 }
 
 // NewServer returns a configured server.
@@ -107,8 +110,6 @@ func (s *Server) Run(ctx context.Context) error {
 // the HTTP server should bind to and starts it.
 func (s *Server) ListenAndServe(addr string) error {
 	mux := http.NewServeMux()
-
-	// GET /
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		// See: https://golang.org/pkg/net/http/#ServeMux.Handle
 		if r.URL.Path != "/" {
@@ -117,6 +118,15 @@ func (s *Server) ListenAndServe(addr string) error {
 		}
 		fmt.Fprintf(w, fmt.Sprintf("%s v%s\n", AppName, Version))
 	})
+
+	mux.HandleFunc("/v1/auth/accounts", s.HandleAccounts)
+	mux.HandleFunc("/v1/auth/accounts/", s.HandleAccount)
+	mux.HandleFunc("/v1/auth/idents", s.HandleIdents)
+	mux.HandleFunc("/v1/auth/idents/", s.HandleIdent)
+	mux.HandleFunc("/v1/auth/perms", s.HandlePerms)
+	mux.HandleFunc("/v1/auth/perms/", s.HandlePerm)
+	mux.HandleFunc("/v1/auth/snapshot", s.HandleSnapshot)
+	mux.HandleFunc("/v1/auth/publish", s.HandlePublish)
 
 	l, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -129,16 +139,38 @@ func (s *Server) ListenAndServe(addr string) error {
 		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,
 	}
+	s.http = srv
 	go srv.Serve(l)
 
 	return nil
 }
 
+// traceRequests generates an access log for the request.
+func (s *Server) traceRequest(req *http.Request, start time.Time) {
+	url := req.URL
+	host, _, err := net.SplitHostPort(req.RemoteAddr)
+	if err != nil {
+		host = req.RemoteAddr
+	}
+
+	uri := req.RequestURI
+	if uri == "" {
+		uri = url.RequestURI()
+	}
+
+	// 127.0.0.1 - "GET /v1/auth/accounts/cncf HTTP/1.1" 0.345
+	s.log.Tracef(`%s - "%s %s %s" %.6f`, host, req.Method, uri, req.Proto, time.Since(start).Seconds())
+}
+
 // Shutdown stops the server.
-func (s *Server) Shutdown() {
+func (s *Server) Shutdown(ctx context.Context) error {
 	s.log.Infof("Shutting down...")
+	err := s.http.Shutdown(ctx)
+	if err != nil {
+		s.log.Errorf("Error closing http connections: %s", err)
+	}
 	s.quit()
-	return
+	return err
 }
 
 // SetupSignalHandler enables handling process signals.
@@ -163,7 +195,7 @@ func (s *Server) SetupSignalHandler(ctx context.Context) {
 			return
 		case syscall.SIGTERM:
 			// Gracefully shutdown the server.
-			s.Shutdown()
+			s.Shutdown(ctx)
 			return
 		}
 	}
