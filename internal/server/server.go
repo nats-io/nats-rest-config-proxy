@@ -28,11 +28,6 @@ import (
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 )
 
-const (
-	Version = "0.0.1"
-	AppName = "nats-acl-proxy"
-)
-
 // Server is the server.
 type Server struct {
 	mu sync.Mutex
@@ -146,7 +141,7 @@ func (s *Server) ListenAndServe(addr string) error {
 }
 
 // traceRequests generates an access log for the request.
-func (s *Server) traceRequest(req *http.Request, start time.Time) {
+func (s *Server) traceRequest(req *http.Request, status, size int, start time.Time) {
 	url := req.URL
 	host, _, err := net.SplitHostPort(req.RemoteAddr)
 	if err != nil {
@@ -158,8 +153,8 @@ func (s *Server) traceRequest(req *http.Request, start time.Time) {
 		uri = url.RequestURI()
 	}
 
-	// 127.0.0.1 - "GET /v1/auth/accounts/cncf HTTP/1.1" 0.345
-	s.log.Tracef(`%s - "%s %s %s" %.6f`, host, req.Method, uri, req.Proto, time.Since(start).Seconds())
+	// 127.0.0.1 - "GET /v1/auth/accounts/cncf HTTP/1.1" 200 148 0.345
+	s.log.Tracef(`%s - "%s %s %s" %d %d %.3f`, host, req.Method, uri, req.Proto, status, size, time.Since(start).Seconds())
 }
 
 // Shutdown stops the server.
@@ -199,4 +194,24 @@ func (s *Server) SetupSignalHandler(ctx context.Context) {
 			return
 		}
 	}
+}
+
+// Storage directories
+
+func (s *Server) resourcesDir() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.opts.DataDir + "/" + ResourcesDir
+}
+
+func (s *Server) snapshotsDir() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.opts.DataDir + "/" + SnapshotsDir
+}
+
+func (s *Server) currentConfigDir() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.opts.DataDir + "/" + CurrentConfigDir
 }

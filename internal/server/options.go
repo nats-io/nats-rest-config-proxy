@@ -42,6 +42,9 @@ type Options struct {
 
 	// LogFile is the log file.
 	LogFile string
+
+	// DataDir is the directory for the data.
+	DataDir string
 }
 
 func ConfigureOptions(args []string) (*Options, error) {
@@ -72,6 +75,9 @@ func ConfigureOptions(args []string) (*Options, error) {
 	fs.StringVar(&opts.Host, "a", "0.0.0.0", "Network host to listen on.")
 	fs.IntVar(&opts.Port, "port", 4567, "Port to listen on.")
 	fs.IntVar(&opts.Port, "p", 4567, "Port to listen on.")
+	fs.StringVar(&opts.DataDir, "data", "data", "Directory for storing data.")
+	fs.StringVar(&opts.DataDir, "dir", "data", "Directory for storing data.")
+	fs.StringVar(&opts.DataDir, "d", "data", "Directory for storing data.")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, err
@@ -115,6 +121,11 @@ func (opts *Options) ProcessConfigFile(configFile string) error {
 				if err != nil {
 					return err
 				}
+			}
+		case "data_dir":
+			switch o := v.(type) {
+			case string:
+				opts.DataDir = o
 			}
 		case "logging":
 			m, ok := v.(map[string]interface{})
