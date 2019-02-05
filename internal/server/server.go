@@ -16,6 +16,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -28,7 +29,7 @@ import (
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 )
 
-// Server is the server.
+// Server is the NATS ACL Proxy server.
 type Server struct {
 	mu sync.Mutex
 
@@ -38,7 +39,7 @@ type Server struct {
 	// quit stops the server.
 	quit func()
 
-	// log is the Logger from the server.
+	// log is the logger from the server.
 	log *logger
 
 	// http is the http server.
@@ -61,13 +62,14 @@ func (s *Server) Run(ctx context.Context) error {
 		go s.SetupSignalHandler(ctx)
 	}
 	// Cancellation context for the main loop.
-	ctx, cancelFn := context.WithCancel(ctx)
+	ctx, done := context.WithCancel(ctx)
 
 	// Logging configuration.
 	l := NewDefaultLogger()
 	l.debug = s.opts.Debug
 	l.trace = s.opts.Trace
-	if s.opts.LogFile != "" {
+	switch {
+	case s.opts.LogFile != "":
 		lj := &lumberjack.Logger{
 			Filename: s.opts.LogFile,
 			// TODO: Parameterize rest of options.
@@ -79,16 +81,25 @@ func (s *Server) Run(ctx context.Context) error {
 		l.logger.SetOutput(lj)
 		s.quit = func() {
 			lj.Close()
-			cancelFn()
+			done()
 		}
-	} else {
-		s.quit = func() { cancelFn() }
+	case s.opts.NoLog:
+		l.logger.SetOutput(ioutil.Discard)
+		fallthrough
+	default:
+		s.quit = func() { done() }
 	}
 	s.log = l
-
 	s.log.Infof("Starting %s v%s", AppName, Version)
+
+	// Create required directories for storage if not present.
+	err := s.setupStoreDirectories()
+	if err != nil {
+		defer s.quit()			
+		return err
+	}
 	addr := net.JoinHostPort(s.opts.Host, strconv.Itoa(s.opts.Port))
-	err := s.ListenAndServe(addr)
+	err = s.ListenAndServe(addr)
 	if err != nil {
 		defer s.quit()
 		return err
@@ -154,7 +165,7 @@ func (s *Server) traceRequest(req *http.Request, status, size int, start time.Ti
 	}
 
 	// 127.0.0.1 - "GET /v1/auth/accounts/cncf HTTP/1.1" 200 148 0.345
-	s.log.Tracef(`%s - "%s %s %s" %d %d %.3f`, host, req.Method, uri, req.Proto, status, size, time.Since(start).Seconds())
+	s.log.Tracef(`%s - "%s %s %s" %d %d %.6f`, host, req.Method, uri, req.Proto, status, size, time.Since(start).Seconds())
 }
 
 // Shutdown stops the server.

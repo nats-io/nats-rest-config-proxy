@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -79,7 +80,7 @@ type AuthConfig struct {
 	Users []*ExpandedUser `json:"users"`
 }
 
-// buildConfigSnapshot
+// buildConfigSnapshot will create the configuration with the users and permission.
 func (s *Server) buildConfigSnapshot(name string) error {
 	// Collect the files
 	permissions := make(map[string]*Permissions)
@@ -125,7 +126,7 @@ func (s *Server) buildConfigSnapshot(name string) error {
 		if err != nil {
 			return err
 		}
-		s.log.Debugf("=============== %+v", string(data))
+		// s.log.Debugf("=============== %+v", string(data))
 		var u *User
 		err = json.Unmarshal(data, &u)
 		if err != nil {
@@ -136,8 +137,7 @@ func (s *Server) buildConfigSnapshot(name string) error {
 
 		p, ok := permissions[u.Permissions]
 		if !ok {
-			// WARN that didn't find a permission for this user.
-			// so using the default permissions instead.
+			s.log.Tracef("User %q will use default permissions", u.Username)
 			continue
 		}
 
@@ -155,8 +155,6 @@ func (s *Server) buildConfigSnapshot(name string) error {
 		}
 		users = append(users, user)
 	}
-	s.log.Debugf("permissions: %+v", permissions)
-	s.log.Debugf("users: %+v", users)
 
 	ac := &AuthConfig{
 		Users: users,
@@ -165,7 +163,6 @@ func (s *Server) buildConfigSnapshot(name string) error {
 	if err != nil {
 		return err
 	}
-	s.log.Tracef("CONFIG: %s", string(conf))
 	err = s.storeSnapshot(name, conf)
 	if err != nil {
 		return err
@@ -181,4 +178,21 @@ func (s *Server) storeSnapshot(name string, payload []byte) error {
 func (s *Server) storeConfig(data []byte) error {
 	path := filepath.Join(s.currentConfigDir(), "auth.json")
 	return ioutil.WriteFile(path, data, 0666)
+}
+
+func (s *Server) setupStoreDirectories() error {
+	s.log.Debugf("Creating directories...")
+	if err := os.MkdirAll(s.currentConfigDir(), 0755); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(s.snapshotsDir(), 0755); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Join(s.resourcesDir(), "users"), 0755); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Join(s.resourcesDir(), "permissions"), 0755); err != nil {
+		return err
+	}
+	return nil
 }

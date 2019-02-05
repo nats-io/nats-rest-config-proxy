@@ -41,8 +41,9 @@ func (s *Server) HandlePerm(w http.ResponseWriter, req *http.Request) {
 	// PUT
 	switch req.Method {
 	case "PUT":
-		s.log.Debugf("Updating permission resource %q", name)
-		payload, err := ioutil.ReadAll(req.Body)
+		s.log.Infof("Updating permission resource %q", name)
+		var payload []byte
+		payload, err = ioutil.ReadAll(req.Body)
 		if err != nil {
 			status = http.StatusInternalServerError
 			return
@@ -50,7 +51,7 @@ func (s *Server) HandlePerm(w http.ResponseWriter, req *http.Request) {
 		size = len(payload)
 
 		// Store permission
-		s.log.Tracef("Permission %q: %v", name, payload)
+		s.log.Tracef("Permission %q: %s", name, string(payload))
 		err = s.storePermissionResource(name, payload)
 		if err != nil {
 			status = http.StatusInternalServerError
@@ -93,7 +94,8 @@ func (s *Server) HandleIdent(w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case "PUT":
 		s.log.Infof("Updating user resource %q", name)
-		payload, err := ioutil.ReadAll(req.Body)
+		var payload []byte
+		payload, err = ioutil.ReadAll(req.Body)
 		if err != nil {
 			status = http.StatusInternalServerError
 			return
@@ -101,7 +103,7 @@ func (s *Server) HandleIdent(w http.ResponseWriter, req *http.Request) {
 		size = len(payload)
 
 		// Store permission
-		s.log.Tracef("User %q: %v", name, payload)
+		s.log.Tracef("User %q: %v", name, string(payload))
 		err = s.storeUserResource(name, payload)
 		if err != nil {
 			status = http.StatusInternalServerError
@@ -192,7 +194,8 @@ func (s *Server) HandlePublish(w http.ResponseWriter, req *http.Request) {
 	}
 	switch req.Method {
 	case "POST":
-		data, err := s.getConfigSnapshot(name)
+		var data []byte
+		data, err = s.getConfigSnapshot(name)
 		if err != nil {
 			status = http.StatusInternalServerError
 			return
@@ -208,8 +211,6 @@ func (s *Server) HandlePublish(w http.ResponseWriter, req *http.Request) {
 		err = fmt.Errorf("%s is not allowed on %q", req.Method, req.URL.Path)
 	}
 }
-
-// TODO:
 
 // HandlePerms
 func (s *Server) HandlePerms(w http.ResponseWriter, r *http.Request) {

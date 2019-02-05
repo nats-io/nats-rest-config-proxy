@@ -45,6 +45,9 @@ type Options struct {
 
 	// DataDir is the directory for the data.
 	DataDir string
+
+	// NoLog discards the output of the logger.
+	NoLog bool
 }
 
 func ConfigureOptions(args []string) (*Options, error) {
