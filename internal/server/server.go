@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"sync"
 	"syscall"
@@ -93,9 +94,10 @@ func (s *Server) Run(ctx context.Context) error {
 	s.log.Infof("Starting %s v%s", AppName, Version)
 
 	// Create required directories for storage if not present.
+	s.log.Debugf("Creating directories...")
 	err := s.setupStoreDirectories()
 	if err != nil {
-		defer s.quit()			
+		defer s.quit()
 		return err
 	}
 	addr := net.JoinHostPort(s.opts.Host, strconv.Itoa(s.opts.Port))
@@ -212,17 +214,17 @@ func (s *Server) SetupSignalHandler(ctx context.Context) {
 func (s *Server) resourcesDir() string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.opts.DataDir + "/" + ResourcesDir
+	return filepath.Join(s.opts.DataDir, ResourcesDir)
 }
 
 func (s *Server) snapshotsDir() string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.opts.DataDir + "/" + SnapshotsDir
+	return filepath.Join(s.opts.DataDir, SnapshotsDir)
 }
 
 func (s *Server) currentConfigDir() string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.opts.DataDir + "/" + CurrentConfigDir
+	return filepath.Join(s.opts.DataDir, CurrentConfigDir)
 }

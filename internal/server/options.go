@@ -78,9 +78,9 @@ func ConfigureOptions(args []string) (*Options, error) {
 	fs.StringVar(&opts.Host, "a", "0.0.0.0", "Network host to listen on.")
 	fs.IntVar(&opts.Port, "port", 4567, "Port to listen on.")
 	fs.IntVar(&opts.Port, "p", 4567, "Port to listen on.")
-	fs.StringVar(&opts.DataDir, "data", "data", "Directory for storing data.")
-	fs.StringVar(&opts.DataDir, "dir", "data", "Directory for storing data.")
-	fs.StringVar(&opts.DataDir, "d", "data", "Directory for storing data.")
+	fs.StringVar(&opts.DataDir, "data", "./data", "Directory for storing data.")
+	fs.StringVar(&opts.DataDir, "dir", "./data", "Directory for storing data.")
+	fs.StringVar(&opts.DataDir, "d", "./data", "Directory for storing data.")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, err

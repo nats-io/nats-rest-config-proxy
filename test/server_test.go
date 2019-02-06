@@ -20,7 +20,7 @@ func curl(method string, endpoint string, payload []byte) (*http.Response, []byt
 	if err != nil {
 		return nil, nil, err
 	}
-	e := fmt.Sprintf("%v://%v%v", result.Scheme, result.Host, result.Path)
+	e := fmt.Sprintf("%s://%s%s", result.Scheme, result.Host, result.Path)
 	buf := bytes.NewBuffer([]byte(payload))
 	req, err := http.NewRequest(method, e, buf)
 	if err != nil {
@@ -51,6 +51,7 @@ func DefaultOptions() *server.Options {
 		Trace:     true,
 		Host:      "localhost",
 		Port:      4567,
+		DataDir:   "./data",
 	}
 }
 
@@ -73,8 +74,6 @@ func TestBasicRunServer(t *testing.T) {
 func TestFullCycle(t *testing.T) {
 	// Create a data directory.
 	opts := DefaultOptions()
-	opts.DataDir = "./data/"
-
 	s := server.NewServer(opts)
 	host := fmt.Sprintf("http://%s:%d", opts.Host, opts.Port)
 	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
@@ -167,8 +166,8 @@ func TestFullCycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	natsd, _ := gnatsd.RunServerWithConfig("./data/current/main.conf")
-	if err != nil {
-		t.Fatal(err)
+	if natsd == nil {
+		t.Fatal("Unexpected error starting a configured NATS server")
 	}
 	defer natsd.Shutdown()
 
@@ -204,7 +203,7 @@ func TestFullCycle(t *testing.T) {
 		if got != expected {
 			t.Errorf("Expected %q, got: %q", got, expected)
 		}
-	case <-time.After(2*time.Second):
+	case <-time.After(2 * time.Second):
 		t.Fatal("Timed out waiting for server to stop")
 	}
 
@@ -215,7 +214,7 @@ func TestFullCycle(t *testing.T) {
 		if got != expected {
 			t.Errorf("Expected %q, got: %q", got, expected)
 		}
-	case <-time.After(2*time.Second):
+	case <-time.After(2 * time.Second):
 		t.Fatal("Timed out waiting for server to stop")
 	}
 }

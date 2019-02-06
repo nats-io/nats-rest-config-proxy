@@ -181,7 +181,6 @@ func (s *Server) storeConfig(data []byte) error {
 }
 
 func (s *Server) setupStoreDirectories() error {
-	s.log.Debugf("Creating directories...")
 	if err := os.MkdirAll(s.currentConfigDir(), 0755); err != nil {
 		return err
 	}
