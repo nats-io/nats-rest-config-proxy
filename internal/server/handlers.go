@@ -206,19 +206,6 @@ func (s *Server) HandleIdents(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Idents \n")
 }
 
-// HandleAccount
-func (s *Server) HandleAccount(w http.ResponseWriter, r *http.Request) {
-	// defer s.traceRequest(r, time.Now())
-	name := strings.TrimPrefix(r.URL.Path, "/v1/auth/accounts/")
-	fmt.Fprintf(w, "Account: %s\n", name)
-}
-
-// HandleAccounts
-func (s *Server) HandleAccounts(w http.ResponseWriter, r *http.Request) {
-	// defer s.traceRequest(r, time.Now())
-	fmt.Fprintf(w, "Accounts\n")
-}
-
 // HandleHealthz handles healthz.
 func (s *Server) HandleHealthz(w http.ResponseWriter, req *http.Request) {
 	var (
