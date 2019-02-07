@@ -14,9 +14,12 @@
 package server
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"testing"
 	"time"
@@ -29,7 +32,7 @@ func newTestServer() (*Server, error) {
 	}
 	opts := &Options{
 		NoSignals: true,
-		NoLog:     true,
+		NoLog:     false,
 		Debug:     true,
 		Trace:     true,
 		Host:      "localhost",
@@ -38,6 +41,55 @@ func newTestServer() (*Server, error) {
 	}
 	s := &Server{opts: opts}
 	return s, nil
+}
+
+func waitServerIsReady(t *testing.T, ctx context.Context, s *Server) {
+	for range time.NewTicker(50 * time.Millisecond).C {
+		select {
+		case <-ctx.Done():
+			if ctx.Err() == context.Canceled {
+				t.Fatal(ctx.Err())
+			}
+		default:
+		}
+
+		resp, err := http.Get(fmt.Sprintf("http://%s:%d/healthz", s.opts.Host, s.opts.Port))
+		if err != nil {
+			t.Logf("Error: %s", err)
+			continue
+		}
+		if resp.StatusCode == 200 {
+			break
+		}
+	}
+}
+
+func curl(method string, endpoint string, payload []byte) (*http.Response, []byte, error) {
+	result, err := url.Parse(endpoint)
+	if err != nil {
+		return nil, nil, err
+	}
+	e := fmt.Sprintf("%s://%s%s", result.Scheme, result.Host, result.Path)
+	buf := bytes.NewBuffer([]byte(payload))
+	req, err := http.NewRequest(method, e, buf)
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(result.Query()) > 0 {
+		for k, v := range result.Query() {
+			req.URL.Query().Add(k, string(v[0]))
+		}
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, nil, err
+	}
+	return resp, body, nil
 }
 
 func TestServerSetup(t *testing.T) {

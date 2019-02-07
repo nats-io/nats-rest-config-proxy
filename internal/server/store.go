@@ -20,6 +20,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/nats-io/nats-acl-proxy/api"
 )
 
 // storePermissionResource
@@ -52,39 +54,11 @@ func (s *Server) getConfigSnapshot(name string) ([]byte, error) {
 	return ioutil.ReadFile(path)
 }
 
-type User struct {
-	Username    string `json:"username,omitempty"`
-	Password    string `json:"password,omitempty"`
-	Nkey        string `json:"nkey,omitempty"`
-	Permissions string `json:"permissions,omitempty"`
-}
-
-type ExpandedUser struct {
-	Username    string       `json:"username,omitempty"`
-	Password    string       `json:"password,omitempty"`
-	Nkey        string       `json:"nkey,omitempty"`
-	Permissions *Permissions `json:"permissions,omitempty"`
-}
-
-type Permissions struct {
-	Publish   *PermissionRules `json:"publish,omitempty"`
-	Subscribe *PermissionRules `json:"subscribe,omitempty"`
-}
-
-type PermissionRules struct {
-	Allow []string `json:"allow,omitempty"`
-	Deny  []string `json:"deny,omitempty"`
-}
-
-type AuthConfig struct {
-	Users []*ExpandedUser `json:"users"`
-}
-
 // buildConfigSnapshot will create the configuration with the users and permission.
 func (s *Server) buildConfigSnapshot(name string) error {
 	// Collect the files
-	permissions := make(map[string]*Permissions)
-	users := make([]*ExpandedUser, 0)
+	permissions := make(map[string]*api.Permissions)
+	users := make([]*api.ConfigUser, 0)
 
 	files, err := ioutil.ReadDir(filepath.Join(s.resourcesDir(), "permissions"))
 	if err != nil {
@@ -99,7 +73,7 @@ func (s *Server) buildConfigSnapshot(name string) error {
 		if err != nil {
 			return err
 		}
-		var p *Permissions
+		var p *api.Permissions
 		err = json.Unmarshal(data, &p)
 		if err != nil {
 			return err
@@ -118,7 +92,7 @@ func (s *Server) buildConfigSnapshot(name string) error {
 		if err != nil {
 			return err
 		}
-		var u *User
+		var u *api.User
 		err = json.Unmarshal(data, &u)
 		if err != nil {
 			return err
@@ -130,7 +104,7 @@ func (s *Server) buildConfigSnapshot(name string) error {
 			continue
 		}
 
-		user := &ExpandedUser{
+		user := &api.ConfigUser{
 			Permissions: p,
 		}
 		if u.Username != "" {
@@ -145,7 +119,7 @@ func (s *Server) buildConfigSnapshot(name string) error {
 		users = append(users, user)
 	}
 
-	ac := &AuthConfig{
+	ac := &api.AuthConfig{
 		Users: users,
 	}
 	conf, err := json.Marshal(ac)
