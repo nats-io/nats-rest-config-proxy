@@ -90,10 +90,7 @@ func (s *Server) buildConfigSnapshot(name string) error {
 	if err != nil {
 		return err
 	}
-	s.log.Debugf("result: %+v", files)
 	for _, f := range files {
-		s.log.Debugf("permission: %+v", f.Name())
-
 		basename := f.Name()
 		name := strings.TrimSuffix(basename, filepath.Ext(basename))
 
@@ -102,7 +99,6 @@ func (s *Server) buildConfigSnapshot(name string) error {
 		if err != nil {
 			return err
 		}
-		s.log.Debugf("=============== %+v", string(data))
 		var p *Permissions
 		err = json.Unmarshal(data, &p)
 		if err != nil {
@@ -110,30 +106,23 @@ func (s *Server) buildConfigSnapshot(name string) error {
 		}
 		permissions[name] = p
 	}
-	s.log.Debugf("permissions: %+v", permissions)
 
 	files, err = ioutil.ReadDir(filepath.Join(s.resourcesDir(), "users"))
 	if err != nil {
 		return err
 	}
-	s.log.Debugf("result: %+v", files)
 	for _, f := range files {
-		s.log.Debugf("permission: %+v", f.Name())
-
 		basename := f.Name()
 		name := strings.TrimSuffix(basename, filepath.Ext(basename))
 		data, err := s.getUserResource(name)
 		if err != nil {
 			return err
 		}
-		// s.log.Debugf("=============== %+v", string(data))
 		var u *User
 		err = json.Unmarshal(data, &u)
 		if err != nil {
 			return err
 		}
-		s.log.Debugf("-------------- %+v", u)
-		// u.Permission = ""
 
 		p, ok := permissions[u.Permissions]
 		if !ok {

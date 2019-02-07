@@ -29,11 +29,7 @@ func (s *Server) HandlePerm(w http.ResponseWriter, req *http.Request) {
 		err    error
 	)
 	defer func() {
-		if err != nil {
-			errMsg := fmt.Sprintf("Error: %s", err)
-			s.log.Errorf(errMsg)
-			http.Error(w, errMsg, status)
-		}
+		s.processErr(err, status, w, req)
 		s.traceRequest(req, size, status, time.Now())
 	}()
 	name := strings.TrimPrefix(req.URL.Path, "/v1/auth/perms/")
@@ -81,11 +77,7 @@ func (s *Server) HandleIdent(w http.ResponseWriter, req *http.Request) {
 		err    error
 	)
 	defer func() {
-		if err != nil {
-			errMsg := fmt.Sprintf("Error: %s", err)
-			s.log.Errorf(errMsg)
-			http.Error(w, errMsg, status)
-		}
+		s.processErr(err, status, w, req)
 		s.traceRequest(req, size, status, time.Now())
 	}()
 	name := strings.TrimPrefix(req.URL.Path, "/v1/auth/idents/")
@@ -134,11 +126,7 @@ func (s *Server) HandleSnapshot(w http.ResponseWriter, req *http.Request) {
 		err    error
 	)
 	defer func() {
-		if err != nil {
-			errMsg := fmt.Sprintf("Error: %s", err)
-			s.log.Errorf(errMsg)
-			http.Error(w, errMsg, status)
-		}
+		s.processErr(err, status, w, req)
 		s.traceRequest(req, size, status, time.Now())
 	}()
 
@@ -164,19 +152,13 @@ func (s *Server) HandleSnapshot(w http.ResponseWriter, req *http.Request) {
 
 // HandlePublish
 func (s *Server) HandlePublish(w http.ResponseWriter, req *http.Request) {
-	// defer s.traceRequest(r, time.Now())
-	// fmt.Fprintf(w, "Publish \n")
 	var (
 		size   int
 		status int = http.StatusOK
 		err    error
 	)
 	defer func() {
-		if err != nil {
-			errMsg := fmt.Sprintf("Error: %s", err)
-			s.log.Errorf(errMsg)
-			http.Error(w, errMsg, status)
-		}
+		s.processErr(err, status, w, req)
 		s.traceRequest(req, size, status, time.Now())
 	}()
 
@@ -235,4 +217,22 @@ func (s *Server) HandleAccount(w http.ResponseWriter, r *http.Request) {
 func (s *Server) HandleAccounts(w http.ResponseWriter, r *http.Request) {
 	// defer s.traceRequest(r, time.Now())
 	fmt.Fprintf(w, "Accounts\n")
+}
+
+// HandleHealthz handles healthz.
+func (s *Server) HandleHealthz(w http.ResponseWriter, req *http.Request) {
+	var (
+		size   int
+		status int = http.StatusOK
+	)
+	defer s.traceRequest(req, size, status, time.Now())
+	fmt.Fprintf(w, "OK\n")
+}
+
+func (s *Server) processErr(err error, status int, w http.ResponseWriter, req *http.Request) {
+	if err != nil {
+		errMsg := fmt.Sprintf("Error: %s", err)
+		s.log.Errorf(errMsg)
+		http.Error(w, errMsg, status)
+	}
 }

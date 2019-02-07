@@ -126,7 +126,7 @@ func (s *Server) ListenAndServe(addr string) error {
 		}
 		fmt.Fprintf(w, fmt.Sprintf("%s v%s\n", AppName, Version))
 	})
-
+	mux.HandleFunc("/healthz", s.HandleHealthz)
 	mux.HandleFunc("/v1/auth/accounts", s.HandleAccounts)
 	mux.HandleFunc("/v1/auth/accounts/", s.HandleAccount)
 	mux.HandleFunc("/v1/auth/idents", s.HandleIdents)
@@ -135,6 +135,7 @@ func (s *Server) ListenAndServe(addr string) error {
 	mux.HandleFunc("/v1/auth/perms/", s.HandlePerm)
 	mux.HandleFunc("/v1/auth/snapshot", s.HandleSnapshot)
 	mux.HandleFunc("/v1/auth/publish", s.HandlePublish)
+
 
 	l, err := net.Listen("tcp", addr)
 	if err != nil {
