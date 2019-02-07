@@ -14,9 +14,11 @@
 package server
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os/exec"
 	"strings"
 	"time"
 )
@@ -187,6 +189,24 @@ func (s *Server) HandlePublish(w http.ResponseWriter, req *http.Request) {
 			status = http.StatusInternalServerError
 			return
 		}
+
+		s.mu.Lock()
+		script := s.opts.PublishScript
+		s.mu.Unlock()
+
+		if script != "" {
+			s.log.Infof("Executing publish script %q", script)
+			cmd := exec.Command(script)
+			var out bytes.Buffer
+			cmd.Stdout = &out
+			err = cmd.Run()
+			s.log.Tracef("Script output: %s", out.String())
+			if err != nil {
+				status = http.StatusInternalServerError
+				return
+			}
+		}
+
 		fmt.Fprintf(w, "Configuration published\n")
 	default:
 		status = http.StatusMethodNotAllowed

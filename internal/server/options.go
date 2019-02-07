@@ -48,6 +48,10 @@ type Options struct {
 
 	// NoLog discards the output of the logger.
 	NoLog bool
+
+	// PublishScript is a path to a script for publishing
+	// the configuration.
+	PublishScript string
 }
 
 func ConfigureOptions(args []string) (*Options, error) {
@@ -81,6 +85,8 @@ func ConfigureOptions(args []string) (*Options, error) {
 	fs.StringVar(&opts.DataDir, "data", "./data", "Directory for storing data.")
 	fs.StringVar(&opts.DataDir, "dir", "./data", "Directory for storing data.")
 	fs.StringVar(&opts.DataDir, "d", "./data", "Directory for storing data.")
+	fs.StringVar(&opts.PublishScript, "f", "", "Path to an optional script to execute on publish")
+	fs.StringVar(&opts.PublishScript, "publish-script", "", "Path to an optional script to execute on publish")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, err
