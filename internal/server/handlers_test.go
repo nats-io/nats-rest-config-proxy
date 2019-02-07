@@ -44,8 +44,7 @@ func TestPermissionsHandler(t *testing.T) {
 	  "password": "secret",
           "permissions": "normal-user"
 	}`
-	
-	resp, _, err := curl("PUT", host+"/v1/auth/idents/user-a", []byte(payload))
+	resp, _, err := curl("PUT", host+"/v1/auth/idents/sample-user", []byte(payload))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,5 +52,9 @@ func TestPermissionsHandler(t *testing.T) {
 		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
 	}
 
-	// Confirm that the user
+	// Confirm that the user has been created.
+	_, err = s.getUserResource("sample-user")
+	if err != nil {
+		t.Fatal(err)
+	}
 }

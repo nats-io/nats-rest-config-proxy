@@ -15,15 +15,18 @@ package server
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/nats-io/nats-acl-proxy/api"
 )
 
-// HandlePerm
+// HandlePerm handles a request to create/update permissions.
 func (s *Server) HandlePerm(w http.ResponseWriter, req *http.Request) {
 	var (
 		size   int
@@ -48,8 +51,16 @@ func (s *Server) HandlePerm(w http.ResponseWriter, req *http.Request) {
 		}
 		size = len(payload)
 
-		// Store permission
+		// Validate that it is a permission
+		var p *api.Permissions
+		err = json.Unmarshal(payload, &p)
+		if err != nil {
+			status = http.StatusBadRequest
+			return
+		}
 		s.log.Tracef("Permission %q: %s", name, string(payload))
+
+		// Should get a type here instead
 		err = s.storePermissionResource(name, payload)
 		if err != nil {
 			status = http.StatusInternalServerError
