@@ -292,4 +292,9 @@ echo 'Publishing script...' > ./artifact.log
 	if err != nil {
 		t.Fatal(err)
 	}
+	got = string(result)
+	expected = "Publishing script...\n"
+	if got != expected {
+		t.Fatalf("Expected: %s, got: %s", expected, got)
+	}
 }
