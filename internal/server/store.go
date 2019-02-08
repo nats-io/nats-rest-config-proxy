@@ -36,16 +36,34 @@ func (s *Server) storeUserResource(name string, payload []byte) error {
 	return ioutil.WriteFile(path, payload, 0666)
 }
 
-// getPermissionResource
-func (s *Server) getPermissionResource(name string) ([]byte, error) {
+// getPermissionResource reads a permissions resource from a file
+// then returns a set of permissions.
+func (s *Server) getPermissionResource(name string) (u *api.Permissions, err error) {
 	path := filepath.Join(s.resourcesDir(), "permissions", fmt.Sprintf("%s.json", name))
-	return ioutil.ReadFile(path)
+	data, err := ioutil.ReadFile(path)
+	if err != nil {
+		return
+	}
+	err = json.Unmarshal(data, &u)
+	if err != nil {
+		return
+	}
+	return
 }
 
 // getUserResource
-func (s *Server) getUserResource(name string) ([]byte, error) {
+func (s *Server) getUserResource(name string) (*api.User, error) {
 	path := filepath.Join(s.resourcesDir(), "users", fmt.Sprintf("%s.json", name))
-	return ioutil.ReadFile(path)
+	data, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var u *api.User
+	err = json.Unmarshal(data, &u)
+	if err != nil {
+		return nil, err
+	}
+	return u, nil
 }
 
 // getConfigSnapshot
@@ -69,12 +87,7 @@ func (s *Server) buildConfigSnapshot(name string) error {
 		name := strings.TrimSuffix(basename, filepath.Ext(basename))
 
 		// Read the file and try to create a user
-		data, err := s.getPermissionResource(name)
-		if err != nil {
-			return err
-		}
-		var p *api.Permissions
-		err = json.Unmarshal(data, &p)
+		p, err := s.getPermissionResource(name)
 		if err != nil {
 			return err
 		}
@@ -88,12 +101,8 @@ func (s *Server) buildConfigSnapshot(name string) error {
 	for _, f := range files {
 		basename := f.Name()
 		name := strings.TrimSuffix(basename, filepath.Ext(basename))
-		data, err := s.getUserResource(name)
-		if err != nil {
-			return err
-		}
-		var u *api.User
-		err = json.Unmarshal(data, &u)
+
+		u, err := s.getUserResource(name)
 		if err != nil {
 			return err
 		}

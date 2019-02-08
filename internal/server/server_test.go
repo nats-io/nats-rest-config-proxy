@@ -32,13 +32,17 @@ func newTestServer() (*Server, error) {
 	}
 	opts := &Options{
 		NoSignals: true,
-		NoLog:     false,
+		NoLog:     true,
 		Debug:     true,
 		Trace:     true,
 		Host:      "localhost",
 		Port:      4567,
 		DataDir:   dir,
 	}
+	if os.Getenv("DEBUG") == "true" {
+		opts.NoLog = false
+	}
+
 	s := &Server{opts: opts}
 	return s, nil
 }
@@ -113,37 +117,5 @@ func TestServerSetup(t *testing.T) {
 	_, err = os.Stat(s.currentConfigDir())
 	if err != nil {
 		t.Error(err)
-	}
-}
-
-func TestHealthz(t *testing.T) {
-	s, err := newTestServer()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(s.opts.DataDir)
-
-	ctx, done := context.WithTimeout(context.Background(), 2*time.Second)
-	defer done()
-	go s.Run(ctx)
-	defer s.Shutdown(ctx)
-
-	for range time.NewTicker(50 * time.Millisecond).C {
-		select {
-		case <-ctx.Done():
-			if ctx.Err() == context.Canceled {
-				t.Fatal()
-			}
-		default:
-		}
-
-		resp, err := http.Get("http://127.0.0.1:4567/healthz")
-		if err != nil {
-			t.Logf("Error: %s", err)
-			continue
-		}
-		if resp.StatusCode == 200 {
-			break
-		}
 	}
 }

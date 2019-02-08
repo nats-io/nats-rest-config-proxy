@@ -69,13 +69,17 @@ func (s *Server) HandlePerm(w http.ResponseWriter, req *http.Request) {
 		fmt.Fprintf(w, "Perm: %s\n", name)
 	case "GET":
 		s.log.Debugf("Retrieving permission resource %q", name)
-		var resource []byte
-		resource, err = s.getPermissionResource(name)
+		resource, err := s.getPermissionResource(name)
 		if err != nil {
 			status = http.StatusInternalServerError
 			return
 		}
-		fmt.Fprint(w, string(resource))
+		payload, err := resource.AsJSON()
+		if err != nil {
+			status = http.StatusInternalServerError
+			return
+		}
+		fmt.Fprint(w, string(payload))
 	default:
 		status = http.StatusMethodNotAllowed
 		err = fmt.Errorf("%s is not allowed on %q", req.Method, req.URL.Path)
@@ -118,13 +122,19 @@ func (s *Server) HandleIdent(w http.ResponseWriter, req *http.Request) {
 	case "GET":
 		s.log.Debugf("Retrieving user resource %q", name)
 
-		var resource []byte
+		var resource *api.User
 		resource, err = s.getUserResource(name)
 		if err != nil {
 			status = http.StatusInternalServerError
 			return
 		}
-		fmt.Fprint(w, string(resource))
+		var js []byte
+		js, err = resource.AsJSON()
+		if err != nil {
+			status = http.StatusInternalServerError
+			return
+		}
+		fmt.Fprint(w, js)
 	default:
 		status = http.StatusMethodNotAllowed
 		err = fmt.Errorf("%s is not allowed on %q", req.Method, req.URL.Path)

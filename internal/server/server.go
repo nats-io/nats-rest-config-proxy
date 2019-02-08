@@ -165,7 +165,8 @@ func (s *Server) traceRequest(req *http.Request, status, size int, start time.Ti
 	}
 
 	// 127.0.0.1 - "GET /v1/auth/accounts/cncf HTTP/1.1" 200 148 0.345
-	s.log.Tracef(`%s - "%s %s %s" %d %d %.6f`, host, req.Method, uri, req.Proto, status, size, time.Since(start).Seconds())
+	s.log.Tracef(`%s - "%s %s %s" %d %d %.6f`,
+		host, req.Method, uri, req.Proto, status, size, time.Since(start).Seconds())
 }
 
 // Shutdown stops the server.

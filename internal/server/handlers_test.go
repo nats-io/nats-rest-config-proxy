@@ -16,13 +16,48 @@ package server
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
+	"reflect"
 	"testing"
 	"time"
-	// "github.com/nats-io/nats-acl-proxy/api"
+
+	"github.com/nats-io/nats-acl-proxy/api"
 )
 
-func TestPermissionsHandler(t *testing.T) {
+func TestHealthz(t *testing.T) {
+	s, err := newTestServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(s.opts.DataDir)
+
+	ctx, done := context.WithTimeout(context.Background(), 2*time.Second)
+	defer done()
+	go s.Run(ctx)
+	defer s.Shutdown(ctx)
+
+	for range time.NewTicker(50 * time.Millisecond).C {
+		select {
+		case <-ctx.Done():
+			if ctx.Err() == context.Canceled {
+				t.Fatal()
+			}
+		default:
+		}
+
+		resp, err := http.Get("http://127.0.0.1:4567/healthz")
+		if err != nil {
+			t.Logf("Error: %s", err)
+			continue
+		}
+		if resp.StatusCode == 200 {
+			break
+		}
+	}
+}
+
+func TestIdentsHandler(t *testing.T) {
 	s, err := newTestServer()
 	if err != nil {
 		t.Fatal(err)
@@ -51,10 +86,65 @@ func TestPermissionsHandler(t *testing.T) {
 	if resp.StatusCode != 200 {
 		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
 	}
-
-	// Confirm that the user has been created.
-	_, err = s.getUserResource("sample-user")
+	ur, err := s.getUserResource("sample-user")
 	if err != nil {
 		t.Fatal(err)
+	}
+	expected := &api.User{
+		Username:    "sample-user",
+		Password:    "secret",
+		Permissions: "normal-user",
+	}
+	if !reflect.DeepEqual(expected, ur) {
+		t.Errorf("Expected: %+v\nGot: %+v", expected, ur)
+	}
+}
+
+func TestPermsHandler(t *testing.T) {
+	s, err := newTestServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(s.opts.DataDir)
+
+	ctx, done := context.WithTimeout(context.Background(), 2*time.Second)
+	defer done()
+	go s.Run(ctx)
+	defer s.Shutdown(ctx)
+
+	waitServerIsReady(t, ctx, s)
+
+	host := fmt.Sprintf("http://%s:%d", s.opts.Host, s.opts.Port)
+
+	// Create permissions.
+	payload := `{
+         "publish": {
+           "allow": ["foo", "bar"]
+          },
+          "subscribe": {
+            "deny": ["quux"]
+          }
+	}`
+	resp, _, err := curl("PUT", host+"/v1/auth/perms/normal-user", []byte(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+	ur, err := s.getPermissionResource("normal-user")
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := &api.Permissions{
+		Publish: &api.PermissionRules{
+			Allow: []string{"foo", "bar"},
+		},
+		Subscribe: &api.PermissionRules{
+			Deny: []string{"quux"},
+		},
+	}
+	if !reflect.DeepEqual(expected, ur) {
+		t.Errorf("Expected: %+v\nGot: %+v", expected, ur)
 	}
 }

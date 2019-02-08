@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"testing"
 	"time"
 
@@ -44,15 +45,20 @@ func curl(method string, endpoint string, payload []byte) (*http.Response, []byt
 }
 
 func DefaultOptions() *server.Options {
-	return &server.Options{
+	opts := &server.Options{
 		NoSignals: true,
-		NoLog:     false,
+		NoLog:     true,
 		Debug:     true,
 		Trace:     true,
 		Host:      "localhost",
 		Port:      4567,
 		DataDir:   "./data",
 	}
+	if os.Getenv("DEBUG") == "true" {
+		opts.NoLog = false
+	}
+
+	return opts
 }
 
 func TestBasicRunServer(t *testing.T) {

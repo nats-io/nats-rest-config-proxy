@@ -13,11 +13,16 @@
 
 package api
 
-// User represents the payload that a client can make 
+import (
+	"bytes"
+	"encoding/json"
+)
+
+// User represents the payload that a client can make
 type User struct {
-	Username    string `json:"username,omitempty"`
-	Password    string `json:"password,omitempty"`
-	Nkey        string `json:"nkey,omitempty"`
+	Username string `json:"username,omitempty"`
+	Password string `json:"password,omitempty"`
+	Nkey     string `json:"nkey,omitempty"`
 
 	// FIXME: Change into role and consolidate into a single type?
 	// it would have to be filtered out on export though since
@@ -26,10 +31,36 @@ type User struct {
 	Permissions string `json:"permissions,omitempty"`
 }
 
+func marshalIndent(v interface{}) ([]byte, error) {
+	buf := &bytes.Buffer{}
+	encoder := json.NewEncoder(buf)
+	encoder.SetEscapeHTML(false)
+	err := encoder.Encode(v)
+	if err != nil {
+		return nil, err
+	}
+	buf2 := &bytes.Buffer{}
+	err = json.Indent(buf2, buf.Bytes(), "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	return buf2.Bytes(), nil
+}
+
+// AsJSON returns a byte slice of the type.
+func (u *User) AsJSON() ([]byte, error) {
+	return marshalIndent(u)
+}
+
 // Permissions are the publish/subscribe rules.
 type Permissions struct {
 	Publish   *PermissionRules `json:"publish,omitempty"`
 	Subscribe *PermissionRules `json:"subscribe,omitempty"`
+}
+
+// AsJSON returns a byte slice of the type.
+func (p *Permissions) AsJSON() ([]byte, error) {
+	return marshalIndent(p)
 }
 
 // PermissionRules represents the allow/deny rules for publish/subscribe.
@@ -51,4 +82,8 @@ type ConfigUser struct {
 // for the NATS Server.
 type AuthConfig struct {
 	Users []*ConfigUser `json:"users"`
+}
+
+func (ac *AuthConfig) AsJSON() ([]byte, error) {
+	return marshalIndent(ac)
 }
