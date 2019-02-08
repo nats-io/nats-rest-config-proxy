@@ -10,6 +10,26 @@ go get -u github.com/nats-io/nats-acl-config-proxy
 
 ```sh
 $ nats-acl-config-proxy -h
+Usage: nats-acl-config-proxy [options...]
+
+  -D	Enable Debug logging.
+  -V	Enable Trace logging.
+  -a string
+    	Network host to listen on. (default "0.0.0.0")
+  -c string
+    	Configuration file.
+  -d string
+    	Directory for storing data. (default "./data")
+  -dir string
+    	Directory for storing data. (default "./data")
+  -f string
+    	Path to an optional script to execute on publish
+  -h	Show this message.
+  -p int
+    	Port to listen on. (default 4567)
+  -publish-script string
+    	Path to an optional script to execute on publish
+  -v	Print version information.
 ```
 
 ### Developing
