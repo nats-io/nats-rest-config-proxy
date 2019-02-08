@@ -21,7 +21,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/nats-io/nats-acl-proxy/api"
+	"github.com/nats-io/nats-acl-config-proxy/api"
 )
 
 // storePermissionResource

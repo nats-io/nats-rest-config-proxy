@@ -15,7 +15,7 @@ package server
 
 const (
 	Version             = "0.0.1"
-	AppName             = "nats-acl-proxy"
+	AppName             = "nats-acl-config-proxy"
 	DefaultPort         = 4567
 	DefaultDataDir      = "data"
 	ResourcesDir        = "resources"

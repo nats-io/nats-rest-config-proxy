@@ -19,7 +19,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/nats-io/nats-acl-proxy/internal/server"
+	"github.com/nats-io/nats-acl-config-proxy/internal/server"
 )
 
 func main() {

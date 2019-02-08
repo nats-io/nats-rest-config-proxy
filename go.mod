@@ -1,4 +1,4 @@
-module github.com/nats-io/nats-acl-proxy
+module github.com/nats-io/nats-acl-config-proxy
 
 require github.com/nats-io/gnatsd v1.4.0
 

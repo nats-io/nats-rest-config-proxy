@@ -13,7 +13,7 @@ import (
 
 	gnatsd "github.com/nats-io/gnatsd/test"
 	"github.com/nats-io/go-nats"
-	"github.com/nats-io/nats-acl-proxy/internal/server"
+	"github.com/nats-io/nats-acl-config-proxy/internal/server"
 )
 
 func curl(method string, endpoint string, payload []byte) (*http.Response, []byte, error) {

@@ -24,7 +24,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nats-io/nats-acl-proxy/api"
+	"github.com/nats-io/nats-acl-config-proxy/api"
 )
 
 func TestHealthz(t *testing.T) {
@@ -292,5 +292,4 @@ echo 'Publishing script...' > ./artifact.log
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("Result: %s", string(result))
 }
