@@ -131,7 +131,7 @@ func (s *Server) buildConfigSnapshot(name string) error {
 	ac := &api.AuthConfig{
 		Users: users,
 	}
-	conf, err := json.Marshal(ac)
+	conf, err := ac.AsJSON()
 	if err != nil {
 		return err
 	}
@@ -150,6 +150,11 @@ func (s *Server) storeSnapshot(name string, payload []byte) error {
 func (s *Server) storeConfig(data []byte) error {
 	path := filepath.Join(s.currentConfigDir(), "auth.json")
 	return ioutil.WriteFile(path, data, 0666)
+}
+
+func (s *Server) getCurrentConfig() ([]byte, error) {
+	path := filepath.Join(s.currentConfigDir(), "auth.json")
+	return ioutil.ReadFile(path)
 }
 
 func (s *Server) setupStoreDirectories() error {

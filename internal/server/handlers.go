@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -216,12 +217,17 @@ func (s *Server) HandlePublish(w http.ResponseWriter, req *http.Request) {
 		s.mu.Unlock()
 
 		if script != "" {
-			s.log.Infof("Executing publish script %q", script)
+			// Change the cwd of the command to location of the script.
+			var stdout, stderr bytes.Buffer
 			cmd := exec.Command(script)
-			var out bytes.Buffer
-			cmd.Stdout = &out
+			cmd.Dir = filepath.Dir(script)
+			cmd.Stdout = &stdout
+			cmd.Stderr = &stderr
+
+			s.log.Infof("Executing publish script %q", script)
 			err = cmd.Run()
-			s.log.Tracef("Script output: %s", out.String())
+			s.log.Tracef("STDOUT: %s", stdout.String())
+			s.log.Tracef("STDERR: %s", stdout.String())
 			if err != nil {
 				status = http.StatusInternalServerError
 				return

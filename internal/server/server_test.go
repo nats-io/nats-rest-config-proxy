@@ -48,6 +48,8 @@ func newTestServer() (*Server, error) {
 }
 
 func waitServerIsReady(t *testing.T, ctx context.Context, s *Server) {
+	host := s.opts.Host
+	port := s.opts.Port
 	for range time.NewTicker(50 * time.Millisecond).C {
 		select {
 		case <-ctx.Done():
@@ -57,14 +59,34 @@ func waitServerIsReady(t *testing.T, ctx context.Context, s *Server) {
 		default:
 		}
 
-		resp, err := http.Get(fmt.Sprintf("http://%s:%d/healthz", s.opts.Host, s.opts.Port))
+		resp, err := http.Get(fmt.Sprintf("http://%s:%d/healthz", host, port))
 		if err != nil {
 			t.Logf("Error: %s", err)
 			continue
 		}
-		if resp.StatusCode == 200 {
+		if resp != nil && resp.StatusCode == 200 {
 			break
 		}
+	}
+}
+
+func waitServerIsDone(t *testing.T, ctx context.Context, s *Server) {
+	host := s.opts.Host
+	port := s.opts.Port
+	for range time.NewTicker(50 * time.Millisecond).C {
+		select {
+		case <-ctx.Done():
+			if ctx.Err() == context.Canceled {
+				t.Fatal(ctx.Err())
+			}
+		default:
+		}
+
+		resp, err := http.Get(fmt.Sprintf("http://%s:%d/healthz", host, port))
+		if err == nil && resp.StatusCode != 200 {
+			continue
+		}
+		break
 	}
 }
 
