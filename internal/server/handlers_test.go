@@ -389,3 +389,165 @@ exit 1
 		t.Fatalf("Expected: %s\n, got: %s", expected, got)
 	}
 }
+
+func TestDeletePermissionsNameMissing(t *testing.T) {
+	s, err := newTestServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer os.RemoveAll(s.opts.DataDir)
+
+	ctx, done := context.WithTimeout(context.Background(), 2*time.Second)
+	defer done()
+	go s.Run(ctx)
+	defer func() {
+		s.Shutdown(ctx)
+		waitServerIsDone(t, ctx, s)
+	}()
+
+	waitServerIsReady(t, ctx, s)
+
+	host := fmt.Sprintf("http://%s:%d", s.opts.Host, s.opts.Port)
+	createFixtures(t, host)
+
+	resp, _, err := curl("DELETE", host+"/v1/auth/perms/", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 400 {
+		t.Fatalf("Expected bad request, got: %v", resp.StatusCode)
+	}
+
+	resp, _, err = curl("DELETE", host+"/v1/auth/perms", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 405 {
+		t.Fatalf("Expected bad request, got: %v", resp.StatusCode)
+	}
+}
+
+func TestDeleteUsersNameMissing(t *testing.T) {
+	s, err := newTestServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer os.RemoveAll(s.opts.DataDir)
+
+	ctx, done := context.WithTimeout(context.Background(), 2*time.Second)
+	defer done()
+	go s.Run(ctx)
+	defer func() {
+		s.Shutdown(ctx)
+		waitServerIsDone(t, ctx, s)
+	}()
+
+	waitServerIsReady(t, ctx, s)
+
+	host := fmt.Sprintf("http://%s:%d", s.opts.Host, s.opts.Port)
+	createFixtures(t, host)
+
+	resp, _, err := curl("DELETE", host+"/v1/auth/idents/", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 400 {
+		t.Fatalf("Expected bad request, got: %v", resp.StatusCode)
+	}
+
+	resp, _, err = curl("DELETE", host+"/v1/auth/idents", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 405 {
+		t.Fatalf("Expected bad request, got: %v", resp.StatusCode)
+	}
+}
+
+func TestDeletePermissions(t *testing.T) {
+	s, err := newTestServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer os.RemoveAll(s.opts.DataDir)
+
+	ctx, done := context.WithTimeout(context.Background(), 2*time.Second)
+	defer done()
+	go s.Run(ctx)
+	defer func() {
+		s.Shutdown(ctx)
+		waitServerIsDone(t, ctx, s)
+	}()
+
+	waitServerIsReady(t, ctx, s)
+
+	host := fmt.Sprintf("http://%s:%d", s.opts.Host, s.opts.Port)
+	createFixtures(t, host)
+
+	resp, _, err := curl("DELETE", host+"/v1/auth/perms/second-user", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	resp, _, err = curl("POST", host+"/v1/auth/publish", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	config, err := s.getCurrentConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := `{
+  "users": [
+    {
+      "username": "first-user",
+      "password": "secret",
+      "permissions": {
+        "publish": {
+          "allow": [
+            "foo.*",
+            "bar.>"
+          ]
+        },
+        "subscribe": {
+          "deny": [
+            "quux"
+          ]
+        }
+      }
+    },
+    {
+      "username": "second-user",
+      "password": "secret",
+      "permissions": {
+        "publish": {
+          "allow": [
+            "foo.*",
+            "bar.>"
+          ]
+        },
+        "subscribe": {
+          "deny": [
+            "quux"
+          ]
+        }
+      }
+    }
+  ]
+}
+`
+	got := string(config)
+	if expected != got {
+		t.Fatalf("Expected: %s\n, got: %s", expected, got)
+	}
+}

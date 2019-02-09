@@ -16,6 +16,7 @@ package server
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -81,6 +82,20 @@ func (s *Server) HandlePerm(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		fmt.Fprint(w, string(payload))
+	case "DELETE":
+		s.log.Debugf("Deleting permission resource %q", name)
+		if name == "" {
+			err = errors.New("Bad Request")
+			status = http.StatusBadRequest
+			return
+		}
+
+		err = s.deletePermissionResource(name)
+		if err != nil {
+			status = http.StatusInternalServerError
+			return
+		}
+		fmt.Fprintf(w, "Deleted permission resource %q", name)
 	default:
 		status = http.StatusMethodNotAllowed
 		err = fmt.Errorf("%s is not allowed on %q", req.Method, req.URL.Path)
@@ -100,7 +115,6 @@ func (s *Server) HandleIdent(w http.ResponseWriter, req *http.Request) {
 	}()
 	name := strings.TrimPrefix(req.URL.Path, "/v1/auth/idents/")
 
-	// PUT
 	switch req.Method {
 	case "PUT":
 		s.log.Infof("Updating user resource %q", name)
@@ -136,6 +150,20 @@ func (s *Server) HandleIdent(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		fmt.Fprint(w, js)
+	case "DELETE":
+		s.log.Debugf("Deleting user resource %q", name)
+		if name == "" {
+			err = errors.New("Bad Request")
+			status = http.StatusBadRequest
+			return
+		}
+
+		err = s.deleteUserResource(name)
+		if err != nil {
+			status = http.StatusInternalServerError
+			return
+		}
+		fmt.Fprintf(w, "Deleted user resource %q", name)
 	default:
 		status = http.StatusMethodNotAllowed
 		err = fmt.Errorf("%s is not allowed on %q", req.Method, req.URL.Path)
@@ -242,14 +270,50 @@ func (s *Server) HandlePublish(w http.ResponseWriter, req *http.Request) {
 }
 
 // HandlePerms
-func (s *Server) HandlePerms(w http.ResponseWriter, r *http.Request) {
-	// defer s.log.traceRequest(r, time.Now())
+func (s *Server) HandlePerms(w http.ResponseWriter, req *http.Request) {
+	var (
+		size   int
+		status int = http.StatusOK
+		err    error
+	)
+	defer func() {
+		s.processErr(err, status, w, req)
+		s.log.traceRequest(req, size, status, time.Now())
+	}()
+
+	switch req.Method {
+	case "GET":
+		// TODO
+	default:
+		status = http.StatusMethodNotAllowed
+		err = fmt.Errorf("%s is not allowed on %q", req.Method, req.URL.Path)
+		return
+	}
+
 	fmt.Fprintf(w, "Perms \n")
 }
 
 // HandleIdents
-func (s *Server) HandleIdents(w http.ResponseWriter, r *http.Request) {
-	// defer s.log.traceRequest(r, time.Now())
+func (s *Server) HandleIdents(w http.ResponseWriter, req *http.Request) {
+	var (
+		size   int
+		status int = http.StatusOK
+		err    error
+	)
+	defer func() {
+		s.processErr(err, status, w, req)
+		s.log.traceRequest(req, size, status, time.Now())
+	}()
+
+	switch req.Method {
+	case "GET":
+		// TODO
+	default:
+		status = http.StatusMethodNotAllowed
+		err = fmt.Errorf("%s is not allowed on %q", req.Method, req.URL.Path)
+		return
+	}
+
 	fmt.Fprintf(w, "Idents \n")
 }
 

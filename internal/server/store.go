@@ -51,6 +51,17 @@ func (s *Server) getPermissionResource(name string) (u *api.Permissions, err err
 	return
 }
 
+func (s *Server) deletePermissionResource(name string) error {
+	path := filepath.Join(s.resourcesDir(), "permissions", fmt.Sprintf("%s.json", name))
+
+	// If already gone then no need to delete...
+	if _, err := os.Stat(path); err != nil && os.IsNotExist(err) {
+		return nil
+	}
+
+	return os.Remove(path)
+}
+
 // getUserResource
 func (s *Server) getUserResource(name string) (*api.User, error) {
 	path := filepath.Join(s.resourcesDir(), "users", fmt.Sprintf("%s.json", name))
@@ -66,10 +77,32 @@ func (s *Server) getUserResource(name string) (*api.User, error) {
 	return u, nil
 }
 
+func (s *Server) deleteUserResource(name string) error {
+	path := filepath.Join(s.resourcesDir(), "users", fmt.Sprintf("%s.json", name))
+
+	// If already gone then no need to delete...
+	if _, err := os.Stat(path); err != nil && os.IsNotExist(err) {
+		return nil
+	}
+
+	return os.Remove(path)
+}
+
 // getConfigSnapshot
 func (s *Server) getConfigSnapshot(name string) ([]byte, error) {
 	path := filepath.Join(s.snapshotsDir(), fmt.Sprintf("%s.json", name))
 	return ioutil.ReadFile(path)
+}
+
+func (s *Server) deleteConfigSnapshot(name string) error {
+	path := filepath.Join(s.snapshotsDir(), fmt.Sprintf("%s.json", name))
+
+	// If already gone then no need to delete...
+	if _, err := os.Stat(path); err != nil && os.IsNotExist(err) {
+		return nil
+	}
+
+	return os.Remove(path)
 }
 
 // buildConfigSnapshot will create the configuration with the users and permission.
