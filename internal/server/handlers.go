@@ -36,7 +36,7 @@ func (s *Server) HandlePerm(w http.ResponseWriter, req *http.Request) {
 	)
 	defer func() {
 		s.processErr(err, status, w, req)
-		s.traceRequest(req, size, status, time.Now())
+		s.log.traceRequest(req, size, status, time.Now())
 	}()
 	name := strings.TrimPrefix(req.URL.Path, "/v1/auth/perms/")
 
@@ -96,7 +96,7 @@ func (s *Server) HandleIdent(w http.ResponseWriter, req *http.Request) {
 	)
 	defer func() {
 		s.processErr(err, status, w, req)
-		s.traceRequest(req, size, status, time.Now())
+		s.log.traceRequest(req, size, status, time.Now())
 	}()
 	name := strings.TrimPrefix(req.URL.Path, "/v1/auth/idents/")
 
@@ -151,7 +151,7 @@ func (s *Server) HandleSnapshot(w http.ResponseWriter, req *http.Request) {
 	)
 	defer func() {
 		s.processErr(err, status, w, req)
-		s.traceRequest(req, size, status, time.Now())
+		s.log.traceRequest(req, size, status, time.Now())
 	}()
 
 	// PUT
@@ -183,7 +183,7 @@ func (s *Server) HandlePublish(w http.ResponseWriter, req *http.Request) {
 	)
 	defer func() {
 		s.processErr(err, status, w, req)
-		s.traceRequest(req, size, status, time.Now())
+		s.log.traceRequest(req, size, status, time.Now())
 	}()
 
 	name := req.URL.Query().Get("name")
@@ -243,13 +243,13 @@ func (s *Server) HandlePublish(w http.ResponseWriter, req *http.Request) {
 
 // HandlePerms
 func (s *Server) HandlePerms(w http.ResponseWriter, r *http.Request) {
-	// defer s.traceRequest(r, time.Now())
+	// defer s.log.traceRequest(r, time.Now())
 	fmt.Fprintf(w, "Perms \n")
 }
 
 // HandleIdents
 func (s *Server) HandleIdents(w http.ResponseWriter, r *http.Request) {
-	// defer s.traceRequest(r, time.Now())
+	// defer s.log.traceRequest(r, time.Now())
 	fmt.Fprintf(w, "Idents \n")
 }
 
@@ -259,7 +259,7 @@ func (s *Server) HandleHealthz(w http.ResponseWriter, req *http.Request) {
 		size   int
 		status int = http.StatusOK
 	)
-	defer s.traceRequest(req, size, status, time.Now())
+	defer s.log.traceRequest(req, size, status, time.Now())
 	fmt.Fprintf(w, "OK\n")
 }
 

@@ -16,7 +16,10 @@ package server
 import (
 	"fmt"
 	"log"
+	"net"
+	"net/http"
 	"os"
+	"time"
 )
 
 // logger is the server logger.
@@ -73,4 +76,22 @@ func (l *logger) Tracef(format string, v ...interface{}) {
 	if l.trace {
 		l.logger.Printf(l.traceLabel+format, v...)
 	}
+}
+
+// traceRequests generates an access log for the request.
+func (l *logger) traceRequest(req *http.Request, status, size int, start time.Time) {
+	url := req.URL
+	host, _, err := net.SplitHostPort(req.RemoteAddr)
+	if err != nil {
+		host = req.RemoteAddr
+	}
+
+	uri := req.RequestURI
+	if uri == "" {
+		uri = url.RequestURI()
+	}
+
+	// 127.0.0.1 - "GET /v1/auth/accounts/cncf HTTP/1.1" 200 148 0.345
+	l.Tracef(`%s - "%s %s %s" %d %d %.6f`,
+		host, req.Method, uri, req.Proto, status, size, time.Since(start).Seconds())
 }
