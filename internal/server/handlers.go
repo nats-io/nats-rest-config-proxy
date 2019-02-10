@@ -16,6 +16,7 @@ package server
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -36,7 +37,7 @@ func (s *Server) HandlePerm(w http.ResponseWriter, req *http.Request) {
 	)
 	defer func() {
 		s.processErr(err, status, w, req)
-		s.traceRequest(req, size, status, time.Now())
+		s.log.traceRequest(req, size, status, time.Now())
 	}()
 	name := strings.TrimPrefix(req.URL.Path, "/v1/auth/perms/")
 
@@ -81,6 +82,20 @@ func (s *Server) HandlePerm(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		fmt.Fprint(w, string(payload))
+	case "DELETE":
+		s.log.Debugf("Deleting permission resource %q", name)
+		if name == "" {
+			err = errors.New("Bad Request")
+			status = http.StatusBadRequest
+			return
+		}
+
+		err = s.deletePermissionResource(name)
+		if err != nil {
+			status = http.StatusInternalServerError
+			return
+		}
+		fmt.Fprintf(w, "Deleted permission resource %q", name)
 	default:
 		status = http.StatusMethodNotAllowed
 		err = fmt.Errorf("%s is not allowed on %q", req.Method, req.URL.Path)
@@ -96,11 +111,10 @@ func (s *Server) HandleIdent(w http.ResponseWriter, req *http.Request) {
 	)
 	defer func() {
 		s.processErr(err, status, w, req)
-		s.traceRequest(req, size, status, time.Now())
+		s.log.traceRequest(req, size, status, time.Now())
 	}()
 	name := strings.TrimPrefix(req.URL.Path, "/v1/auth/idents/")
 
-	// PUT
 	switch req.Method {
 	case "PUT":
 		s.log.Infof("Updating user resource %q", name)
@@ -136,6 +150,20 @@ func (s *Server) HandleIdent(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		fmt.Fprint(w, js)
+	case "DELETE":
+		s.log.Debugf("Deleting user resource %q", name)
+		if name == "" {
+			err = errors.New("Bad Request")
+			status = http.StatusBadRequest
+			return
+		}
+
+		err = s.deleteUserResource(name)
+		if err != nil {
+			status = http.StatusInternalServerError
+			return
+		}
+		fmt.Fprintf(w, "Deleted user resource %q", name)
 	default:
 		status = http.StatusMethodNotAllowed
 		err = fmt.Errorf("%s is not allowed on %q", req.Method, req.URL.Path)
@@ -151,7 +179,7 @@ func (s *Server) HandleSnapshot(w http.ResponseWriter, req *http.Request) {
 	)
 	defer func() {
 		s.processErr(err, status, w, req)
-		s.traceRequest(req, size, status, time.Now())
+		s.log.traceRequest(req, size, status, time.Now())
 	}()
 
 	// PUT
@@ -183,7 +211,7 @@ func (s *Server) HandlePublish(w http.ResponseWriter, req *http.Request) {
 	)
 	defer func() {
 		s.processErr(err, status, w, req)
-		s.traceRequest(req, size, status, time.Now())
+		s.log.traceRequest(req, size, status, time.Now())
 	}()
 
 	name := req.URL.Query().Get("name")
@@ -242,15 +270,77 @@ func (s *Server) HandlePublish(w http.ResponseWriter, req *http.Request) {
 }
 
 // HandlePerms
-func (s *Server) HandlePerms(w http.ResponseWriter, r *http.Request) {
-	// defer s.traceRequest(r, time.Now())
-	fmt.Fprintf(w, "Perms \n")
+func (s *Server) HandlePerms(w http.ResponseWriter, req *http.Request) {
+	var (
+		size   int
+		status int = http.StatusOK
+		err    error
+	)
+	defer func() {
+		s.processErr(err, status, w, req)
+		s.log.traceRequest(req, size, status, time.Now())
+	}()
+
+	switch req.Method {
+	case "GET":
+		var (
+			data  []byte
+			perms map[string]*api.Permissions
+		)
+		perms, err = s.getPermissions()
+		if err != nil {
+			status = http.StatusInternalServerError
+			return
+		}
+		data, err = marshalIndent(perms)
+		if err != nil {
+			status = http.StatusInternalServerError
+			return
+		}
+		fmt.Fprintf(w, string(data))
+		return
+	default:
+		status = http.StatusMethodNotAllowed
+		err = fmt.Errorf("%s is not allowed on %q", req.Method, req.URL.Path)
+		return
+	}
 }
 
 // HandleIdents
-func (s *Server) HandleIdents(w http.ResponseWriter, r *http.Request) {
-	// defer s.traceRequest(r, time.Now())
-	fmt.Fprintf(w, "Idents \n")
+func (s *Server) HandleIdents(w http.ResponseWriter, req *http.Request) {
+	var (
+		size   int
+		status int = http.StatusOK
+		err    error
+	)
+	defer func() {
+		s.processErr(err, status, w, req)
+		s.log.traceRequest(req, size, status, time.Now())
+	}()
+
+	switch req.Method {
+	case "GET":
+		var (
+			data  []byte
+			users []*api.User
+		)
+		users, err = s.getUsers()
+		if err != nil {
+			status = http.StatusInternalServerError
+			return
+		}
+		data, err = marshalIndent(users)
+		if err != nil {
+			status = http.StatusInternalServerError
+			return
+		}
+		fmt.Fprintf(w, string(data))
+		return
+	default:
+		status = http.StatusMethodNotAllowed
+		err = fmt.Errorf("%s is not allowed on %q", req.Method, req.URL.Path)
+		return
+	}
 }
 
 // HandleHealthz handles healthz.
@@ -259,7 +349,7 @@ func (s *Server) HandleHealthz(w http.ResponseWriter, req *http.Request) {
 		size   int
 		status int = http.StatusOK
 	)
-	defer s.traceRequest(req, size, status, time.Now())
+	defer s.log.traceRequest(req, size, status, time.Now())
 	fmt.Fprintf(w, "OK\n")
 }
 
@@ -269,4 +359,20 @@ func (s *Server) processErr(err error, status int, w http.ResponseWriter, req *h
 		s.log.Errorf(errMsg)
 		http.Error(w, errMsg, status)
 	}
+}
+
+func marshalIndent(v interface{}) ([]byte, error) {
+	buf := &bytes.Buffer{}
+	encoder := json.NewEncoder(buf)
+	encoder.SetEscapeHTML(false)
+	err := encoder.Encode(v)
+	if err != nil {
+		return nil, err
+	}
+	buf2 := &bytes.Buffer{}
+	err = json.Indent(buf2, buf.Bytes(), "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	return buf2.Bytes(), nil
 }
