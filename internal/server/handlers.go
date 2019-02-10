@@ -283,14 +283,27 @@ func (s *Server) HandlePerms(w http.ResponseWriter, req *http.Request) {
 
 	switch req.Method {
 	case "GET":
-		// TODO
+		var (
+			data  []byte
+			perms map[string]*api.Permissions
+		)
+		perms, err = s.getPermissions()
+		if err != nil {
+			status = http.StatusInternalServerError
+			return
+		}
+		data, err = marshalIndent(perms)
+		if err != nil {
+			status = http.StatusInternalServerError
+			return
+		}
+		fmt.Fprintf(w, string(data))
+		return
 	default:
 		status = http.StatusMethodNotAllowed
 		err = fmt.Errorf("%s is not allowed on %q", req.Method, req.URL.Path)
 		return
 	}
-
-	fmt.Fprintf(w, "Perms \n")
 }
 
 // HandleIdents
@@ -307,14 +320,27 @@ func (s *Server) HandleIdents(w http.ResponseWriter, req *http.Request) {
 
 	switch req.Method {
 	case "GET":
-		// TODO
+		var (
+			data  []byte
+			users []*api.User
+		)
+		users, err = s.getUsers()
+		if err != nil {
+			status = http.StatusInternalServerError
+			return
+		}
+		data, err = marshalIndent(users)
+		if err != nil {
+			status = http.StatusInternalServerError
+			return
+		}
+		fmt.Fprintf(w, string(data))
+		return
 	default:
 		status = http.StatusMethodNotAllowed
 		err = fmt.Errorf("%s is not allowed on %q", req.Method, req.URL.Path)
 		return
 	}
-
-	fmt.Fprintf(w, "Idents \n")
 }
 
 // HandleHealthz handles healthz.
@@ -333,4 +359,20 @@ func (s *Server) processErr(err error, status int, w http.ResponseWriter, req *h
 		s.log.Errorf(errMsg)
 		http.Error(w, errMsg, status)
 	}
+}
+
+func marshalIndent(v interface{}) ([]byte, error) {
+	buf := &bytes.Buffer{}
+	encoder := json.NewEncoder(buf)
+	encoder.SetEscapeHTML(false)
+	err := encoder.Encode(v)
+	if err != nil {
+		return nil, err
+	}
+	buf2 := &bytes.Buffer{}
+	err = json.Indent(buf2, buf.Bytes(), "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	return buf2.Bytes(), nil
 }

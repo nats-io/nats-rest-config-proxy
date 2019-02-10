@@ -15,6 +15,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -549,5 +550,128 @@ func TestDeletePermissions(t *testing.T) {
 	got := string(config)
 	if expected != got {
 		t.Fatalf("Expected: %s\n, got: %s", expected, got)
+	}
+}
+
+func TestPermsList(t *testing.T) {
+	s, err := newTestServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(s.opts.DataDir)
+
+	ctx, done := context.WithTimeout(context.Background(), 2*time.Second)
+	defer done()
+	go s.Run(ctx)
+	defer s.Shutdown(ctx)
+	waitServerIsReady(t, ctx, s)
+
+	host := fmt.Sprintf("http://%s:%d", s.opts.Host, s.opts.Port)
+	payload := `{ 
+          "publish":   { "allow": ["hello", "world"] },
+          "subscribe": { "allow": ["public.>"], "deny": ["private.>"] }
+	}`
+	resp, _, err := curl("PUT", host+"/v1/auth/perms/normal-user", []byte(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	payload = `{ 
+          "publish":   { "allow": [">"] },
+          "subscribe": { "allow": [">"] }
+	}`
+	resp, _, err = curl("PUT", host+"/v1/auth/perms/admin-user", []byte(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	var data []byte
+	resp, data, err = curl("GET", host+"/v1/auth/perms", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	var perms map[string]*api.Permissions
+	err = json.Unmarshal(data, &perms)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := map[string]*api.Permissions{
+		"admin-user": &api.Permissions{
+			Publish: &api.PermissionRules{
+				Allow: []string{">"},
+			},
+			Subscribe: &api.PermissionRules{
+				Allow: []string{">"},
+			},
+		},
+		"normal-user": &api.Permissions{
+			Publish: &api.PermissionRules{
+				Allow: []string{"hello", "world"},
+			},
+			Subscribe: &api.PermissionRules{
+				Allow: []string{"public.>"},
+				Deny:  []string{"private.>"},
+			},
+		},
+	}
+	if !reflect.DeepEqual(expected, perms) {
+		t.Errorf("Expected: %+v\nGot: %+v", expected, perms)
+	}
+}
+
+func TestUsersList(t *testing.T) {
+	s, err := newTestServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(s.opts.DataDir)
+
+	ctx, done := context.WithTimeout(context.Background(), 2*time.Second)
+	defer done()
+	go s.Run(ctx)
+	defer s.Shutdown(ctx)
+	waitServerIsReady(t, ctx, s)
+
+	host := fmt.Sprintf("http://%s:%d", s.opts.Host, s.opts.Port)
+	createFixtures(t, host)
+
+	var data []byte
+	resp, data, err := curl("GET", host+"/v1/auth/idents", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	var users []*api.User
+	err = json.Unmarshal(data, &users)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := make([]*api.User, 0)
+	firstUser := &api.User{
+		Username:    "first-user",
+		Password:    "secret",
+		Permissions: "normal-user",
+	}
+	secondUser := &api.User{
+		Username:    "second-user",
+		Password:    "secret",
+		Permissions: "normal-user",
+	}
+	expected = append(expected, firstUser, secondUser)
+	if !reflect.DeepEqual(expected, users) {
+		t.Errorf("Expected: %+v\nGot: %+v", expected, users)
 	}
 }

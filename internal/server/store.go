@@ -51,6 +51,46 @@ func (s *Server) getPermissionResource(name string) (u *api.Permissions, err err
 	return
 }
 
+// getPermissions returns a set of permissions.
+func (s *Server) getPermissions() (map[string]*api.Permissions, error) {
+	permissions := make(map[string]*api.Permissions)
+	files, err := ioutil.ReadDir(filepath.Join(s.resourcesDir(), "permissions"))
+	if err != nil {
+		return nil, err
+	}
+	for _, f := range files {
+		basename := f.Name()
+		name := strings.TrimSuffix(basename, filepath.Ext(basename))
+
+		p, err := s.getPermissionResource(name)
+		if err != nil {
+			return nil, err
+		}
+		permissions[name] = p
+	}
+	return permissions, nil
+}
+
+// getUsers returns a set of users.
+func (s *Server) getUsers() ([]*api.User, error) {
+	users := make([]*api.User, 0)
+	files, err := ioutil.ReadDir(filepath.Join(s.resourcesDir(), "users"))
+	if err != nil {
+		return nil, err
+	}
+	for _, f := range files {
+		basename := f.Name()
+		name := strings.TrimSuffix(basename, filepath.Ext(basename))
+
+		u, err := s.getUserResource(name)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, u)
+	}
+	return users, nil
+}
+
 func (s *Server) deletePermissionResource(name string) error {
 	path := filepath.Join(s.resourcesDir(), "permissions", fmt.Sprintf("%s.json", name))
 
@@ -107,27 +147,13 @@ func (s *Server) deleteConfigSnapshot(name string) error {
 
 // buildConfigSnapshot will create the configuration with the users and permission.
 func (s *Server) buildConfigSnapshot(name string) error {
-	// Collect the files
-	permissions := make(map[string]*api.Permissions)
-	users := make([]*api.ConfigUser, 0)
-
-	files, err := ioutil.ReadDir(filepath.Join(s.resourcesDir(), "permissions"))
+	permissions, err := s.getPermissions()
 	if err != nil {
 		return err
 	}
-	for _, f := range files {
-		basename := f.Name()
-		name := strings.TrimSuffix(basename, filepath.Ext(basename))
 
-		// Read the file and try to create a user
-		p, err := s.getPermissionResource(name)
-		if err != nil {
-			return err
-		}
-		permissions[name] = p
-	}
-
-	files, err = ioutil.ReadDir(filepath.Join(s.resourcesDir(), "users"))
+	users := make([]*api.ConfigUser, 0)
+	files, err := ioutil.ReadDir(filepath.Join(s.resourcesDir(), "users"))
 	if err != nil {
 		return err
 	}
