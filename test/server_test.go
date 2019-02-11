@@ -16,6 +16,45 @@ import (
 	"github.com/nats-io/nats-acl-config-proxy/internal/server"
 )
 
+func waitServerIsReady(t *testing.T, ctx context.Context, host string) {
+	for range time.NewTicker(50 * time.Millisecond).C {
+		select {
+		case <-ctx.Done():
+			if ctx.Err() == context.Canceled {
+				t.Fatal(ctx.Err())
+			}
+		default:
+		}
+
+		resp, err := http.Get(fmt.Sprintf("%s/healthz", host))
+		if err != nil {
+			t.Logf("Error: %s", err)
+			continue
+		}
+		if resp != nil && resp.StatusCode == 200 {
+			break
+		}
+	}
+}
+
+func waitServerIsDone(t *testing.T, ctx context.Context, host string) {
+	for range time.NewTicker(50 * time.Millisecond).C {
+		select {
+		case <-ctx.Done():
+			if ctx.Err() == context.Canceled {
+				t.Fatal(ctx.Err())
+			}
+		default:
+		}
+
+		resp, err := http.Get(fmt.Sprintf("%s/healthz", host))
+		if err == nil && resp.StatusCode != 200 {
+			continue
+		}
+		break
+	}
+}
+
 func curl(method string, endpoint string, payload []byte) (*http.Response, []byte, error) {
 	result, err := url.Parse(endpoint)
 	if err != nil {
@@ -67,7 +106,7 @@ func TestBasicRunServer(t *testing.T) {
 	s := server.NewServer(opts)
 	ctx, done := context.WithCancel(context.Background())
 
-	time.AfterFunc(50*time.Millisecond, func() {
+	time.AfterFunc(100*time.Millisecond, func() {
 		done()
 	})
 
@@ -85,12 +124,14 @@ func TestFullCycle(t *testing.T) {
 	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 	time.AfterFunc(2*time.Second, func() {
 		s.Shutdown(ctx)
+		waitServerIsDone(t, ctx, host)
 	})
 	done := make(chan struct{})
 	go func() {
 		s.Run(ctx)
 		done <- struct{}{}
 	}()
+	waitServerIsReady(t, ctx, host)
 
 	// Create a couple of users
 	payload := `{
