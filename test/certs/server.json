@@ -1,0 +1,16 @@
+{
+    "CN": "nats-cluster.default.svc",
+    "hosts": [
+        "*.nats-cluster.default.svc",
+        "nats-cluster.default.svc.cluster.local"
+    ],
+    "key": {
+        "algo": "rsa",
+        "size": 2048
+    },
+    "names": [
+        {
+            "OU": "NATS.io"
+        }
+    ]
+}

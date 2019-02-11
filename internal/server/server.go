@@ -15,6 +15,8 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -117,6 +119,25 @@ func (s *Server) Run(ctx context.Context) error {
 // ListenAndServe takes the network address and port that
 // the HTTP server should bind to and starts it.
 func (s *Server) ListenAndServe(addr string) error {
+	var (
+		l       net.Listener
+		useTLS  bool = s.opts.CertFile != ""
+		tlsconf *tls.Config
+		err     error
+	)
+
+	if useTLS {
+		s.log.Infof("TLS is required for client connections")
+		if tlsconf, err = s.generateTLSConfig(); err == nil {
+			l, err = tls.Listen("tcp", addr, tlsconf)
+		}
+	} else {
+		l, err = net.Listen("tcp", addr)
+	}
+	if err != nil {
+		return err
+	}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		// See: https://golang.org/pkg/net/http/#ServeMux.Handle
@@ -133,11 +154,6 @@ func (s *Server) ListenAndServe(addr string) error {
 	mux.HandleFunc("/v1/auth/perms/", s.HandlePerm)
 	mux.HandleFunc("/v1/auth/snapshot", s.HandleSnapshot)
 	mux.HandleFunc("/v1/auth/publish", s.HandlePublish)
-
-	l, err := net.Listen("tcp", addr)
-	if err != nil {
-		return err
-	}
 	srv := &http.Server{
 		Addr:           addr,
 		Handler:        mux,
@@ -208,4 +224,39 @@ func (s *Server) currentConfigDir() string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return filepath.Join(s.opts.DataDir, CurrentConfigDir)
+}
+
+// generateTLSConfig the TLS config for https.
+func (s *Server) generateTLSConfig() (*tls.Config, error) {
+	//  Load in cert and private key
+	cert, err := tls.LoadX509KeyPair(s.opts.CertFile, s.opts.KeyFile)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing X509 certificate/key pair (%s, %s): %v",
+			s.opts.CertFile, s.opts.KeyFile, err)
+	}
+	cert.Leaf, err = x509.ParseCertificate(cert.Certificate[0])
+	if err != nil {
+		return nil, fmt.Errorf("error parsing certificate (%s): %v",
+			s.opts.CertFile, err)
+	}
+	// Create our TLS configuration
+	config := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		ClientAuth:   tls.NoClientCert,
+		MinVersion:   tls.VersionTLS12,
+	}
+	// Add in CAs if applicable.
+	if s.opts.CaFile != "" {
+		rootPEM, err := ioutil.ReadFile(s.opts.CaFile)
+		if err != nil || rootPEM == nil {
+			return nil, fmt.Errorf("failed to load root ca certificate (%s): %v", s.opts.CaFile, err)
+		}
+		pool := x509.NewCertPool()
+		ok := pool.AppendCertsFromPEM(rootPEM)
+		if !ok {
+			return nil, fmt.Errorf("failed to parse root ca certificate")
+		}
+		config.ClientCAs = pool
+	}
+	return config, nil
 }
