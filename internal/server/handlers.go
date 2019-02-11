@@ -15,6 +15,7 @@ package server
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -30,6 +31,12 @@ import (
 
 // HandlePerm handles a request to create/update permissions.
 func (s *Server) HandlePerm(w http.ResponseWriter, req *http.Request) {
+	if err, status := s.authHandler(req); err != nil {
+		s.log.Errorf(err.Error())
+		http.Error(w, err.Error(), status)
+		return
+	}
+
 	var (
 		size   int
 		status int = http.StatusOK
@@ -104,6 +111,12 @@ func (s *Server) HandlePerm(w http.ResponseWriter, req *http.Request) {
 
 // HandleIdent
 func (s *Server) HandleIdent(w http.ResponseWriter, req *http.Request) {
+	if err, status := s.authHandler(req); err != nil {
+		s.log.Errorf(err.Error())
+		http.Error(w, err.Error(), status)
+		return
+	}
+
 	var (
 		size   int
 		status int = http.StatusOK
@@ -172,6 +185,12 @@ func (s *Server) HandleIdent(w http.ResponseWriter, req *http.Request) {
 
 // HandleSnapshot
 func (s *Server) HandleSnapshot(w http.ResponseWriter, req *http.Request) {
+	if err, status := s.authHandler(req); err != nil {
+		s.log.Errorf(err.Error())
+		http.Error(w, err.Error(), status)
+		return
+	}
+
 	var (
 		size   int
 		status int = http.StatusOK
@@ -204,6 +223,12 @@ func (s *Server) HandleSnapshot(w http.ResponseWriter, req *http.Request) {
 
 // HandlePublish
 func (s *Server) HandlePublish(w http.ResponseWriter, req *http.Request) {
+	if err, status := s.authHandler(req); err != nil {
+		s.log.Errorf(err.Error())
+		http.Error(w, err.Error(), status)
+		return
+	}
+
 	var (
 		size   int
 		status int = http.StatusOK
@@ -271,6 +296,12 @@ func (s *Server) HandlePublish(w http.ResponseWriter, req *http.Request) {
 
 // HandlePerms
 func (s *Server) HandlePerms(w http.ResponseWriter, req *http.Request) {
+	if err, status := s.authHandler(req); err != nil {
+		s.log.Errorf(err.Error())
+		http.Error(w, err.Error(), status)
+		return
+	}
+
 	var (
 		size   int
 		status int = http.StatusOK
@@ -308,6 +339,12 @@ func (s *Server) HandlePerms(w http.ResponseWriter, req *http.Request) {
 
 // HandleIdents
 func (s *Server) HandleIdents(w http.ResponseWriter, req *http.Request) {
+	if err, status := s.authHandler(req); err != nil {
+		s.log.Errorf(err.Error())
+		http.Error(w, err.Error(), status)
+		return
+	}
+
 	var (
 		size   int
 		status int = http.StatusOK
@@ -351,6 +388,33 @@ func (s *Server) HandleHealthz(w http.ResponseWriter, req *http.Request) {
 	)
 	defer s.log.traceRequest(req, size, status, time.Now())
 	fmt.Fprintf(w, "OK\n")
+}
+
+func (s *Server) authHandler(req *http.Request) (error, int) {
+	s.mu.Lock()
+	user := s.opts.HTTPUser
+	s.mu.Unlock()
+
+	if user == "" {
+		// Nothing else to do
+		return nil, 0
+	}
+
+	auth := strings.SplitN(req.Header.Get("Authorization"), " ", 2)
+	if len(auth) != 2 || auth[0] != "Basic" {
+		return errors.New("authorization failed"), http.StatusUnauthorized
+	}
+	payload, err := base64.StdEncoding.DecodeString(auth[1])
+	if err != nil {
+		return errors.New("authorization failed"), http.StatusBadRequest
+	}
+	pair := strings.SplitN(string(payload), ":", 2)
+
+	if len(pair) != 2 || !s.isValidUserPass(pair[0], pair[1]) {
+		return errors.New("authorization failed"), http.StatusUnauthorized
+	}
+
+	return nil, 0
 }
 
 func (s *Server) processErr(err error, status int, w http.ResponseWriter, req *http.Request) {

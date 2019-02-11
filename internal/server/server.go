@@ -25,10 +25,12 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
 
+	"golang.org/x/crypto/bcrypt"
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 )
 
@@ -259,4 +261,25 @@ func (s *Server) generateTLSConfig() (*tls.Config, error) {
 		config.ClientCAs = pool
 	}
 	return config, nil
+}
+
+const bcryptPrefix = "$2a$"
+
+func isBcrypt(password string) bool {
+	return strings.HasPrefix(password, bcryptPrefix)
+}
+
+func (s *Server) isValidUserPass(user, password string) bool {
+	if user != s.opts.HTTPUser {
+		return false
+	}
+	expected := s.opts.HTTPPassword
+	if isBcrypt(expected) {
+		if err := bcrypt.CompareHashAndPassword([]byte(expected), []byte(password)); err != nil {
+			return false
+		}
+	} else if expected != password {
+		return false
+	}
+	return true
 }

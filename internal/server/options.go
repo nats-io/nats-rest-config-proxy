@@ -61,6 +61,12 @@ type Options struct {
 
 	// KeyFile is the key for TLS from the server.
 	KeyFile string
+
+	// HTTPUser
+	HTTPUser      string
+
+	// HTTPPassword
+	HTTPPassword  string	
 }
 
 func ConfigureOptions(args []string) (*Options, error) {
@@ -179,6 +185,27 @@ func (opts *Options) ProcessConfigFile(configFile string) error {
 						return fmt.Errorf("invalid config option: %+v", v)
 					}
 					opts.KeyFile = o
+				}
+			}
+		case "auth":
+			m, ok := v.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("invalid config option: %+v", v)
+			}
+			for k, v := range m {
+				switch k {
+				case "user":
+					o, ok := v.(string)
+					if !ok {
+						return fmt.Errorf("invalid config option: %+v", v)
+					}
+					opts.HTTPUser = o
+				case "password":
+					o, ok := v.(string)
+					if !ok {
+						return fmt.Errorf("invalid config option: %+v", v)
+					}
+					opts.HTTPPassword = o
 				}
 			}
 		case "logging":
