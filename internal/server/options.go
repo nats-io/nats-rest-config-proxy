@@ -52,6 +52,15 @@ type Options struct {
 	// PublishScript is a path to a script for publishing
 	// the configuration.
 	PublishScript string
+
+	// CaFile is the cert with the CA for TLS.
+	CaFile string
+
+	// CertFile is the TLS cert for the server.
+	CertFile string
+
+	// KeyFile is the key for TLS from the server.
+	KeyFile string
 }
 
 func ConfigureOptions(args []string) (*Options, error) {
@@ -90,6 +99,9 @@ func ConfigureOptions(args []string) (*Options, error) {
 	fs.StringVar(&opts.DataDir, "d", "./data", "Directory for storing data.")
 	fs.StringVar(&opts.PublishScript, "f", "", "Path to an optional script to execute on publish")
 	fs.StringVar(&opts.PublishScript, "publish-script", "", "Path to an optional script to execute on publish")
+	fs.StringVar(&opts.CertFile, "cert", "", "Server certificate file (Enables HTTPS).")
+	fs.StringVar(&opts.KeyFile, "key", "", "Private key for server certificate (used with HTTPS).")
+	fs.StringVar(&opts.CaFile, "cacert", "", "Client certificate CA for verification (used with HTTPS).")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, err
@@ -141,6 +153,33 @@ func (opts *Options) ProcessConfigFile(configFile string) error {
 			switch o := v.(type) {
 			case string:
 				opts.DataDir = o
+			}
+		case "tls":
+			m, ok := v.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("invalid config option: %+v", v)
+			}
+			for k, v := range m {
+				switch k {
+				case "ca":
+					o, ok := v.(string)
+					if !ok {
+						return fmt.Errorf("invalid config option: %+v", v)
+					}
+					opts.CaFile = o
+				case "cert":
+					o, ok := v.(string)
+					if !ok {
+						return fmt.Errorf("invalid config option: %+v", v)
+					}
+					opts.CertFile = o
+				case "key":
+					o, ok := v.(string)
+					if !ok {
+						return fmt.Errorf("invalid config option: %+v", v)
+					}
+					opts.KeyFile = o
+				}
 			}
 		case "logging":
 			m, ok := v.(map[string]interface{})

@@ -1,0 +1,13 @@
+{
+    "CN": "acme.example.com",
+    "hosts": [""],
+    "key": {
+        "algo": "rsa",
+        "size": 2048
+    },
+    "names": [
+        {
+            "OU": "ACME"
+        }
+    ]
+}
