@@ -675,3 +675,108 @@ func TestUsersList(t *testing.T) {
 		t.Errorf("Expected: %+v\nGot: %+v", expected, users)
 	}
 }
+
+func TestGetUser(t *testing.T) {
+	s, err := newTestServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(s.opts.DataDir)
+
+	ctx, done := context.WithTimeout(context.Background(), 2*time.Second)
+	defer done()
+	go s.Run(ctx)
+	defer s.Shutdown(ctx)
+	waitServerIsReady(t, ctx, s)
+
+	host := fmt.Sprintf("http://%s:%d", s.opts.Host, s.opts.Port)
+	createFixtures(t, host)
+
+	var data []byte
+	resp, data, err := curl("GET", host+"/v1/auth/idents/first-user", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	var user *api.User
+	err = json.Unmarshal(data, &user)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := &api.User{
+		Username:    "first-user",
+		Password:    "secret",
+		Permissions: "normal-user",
+	}
+	if !reflect.DeepEqual(expected, user) {
+		t.Errorf("Expected: %+v\nGot: %+v", expected, user)
+	}
+}
+
+func TestGetSinglePermission(t *testing.T) {
+	s, err := newTestServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(s.opts.DataDir)
+
+	ctx, done := context.WithTimeout(context.Background(), 2*time.Second)
+	defer done()
+	go s.Run(ctx)
+	defer s.Shutdown(ctx)
+	waitServerIsReady(t, ctx, s)
+
+	host := fmt.Sprintf("http://%s:%d", s.opts.Host, s.opts.Port)
+	payload := `{ 
+          "publish":   { "allow": ["hello", "world"] },
+          "subscribe": { "allow": ["public.>"], "deny": ["private.>"] }
+	}`
+	resp, _, err := curl("PUT", host+"/v1/auth/perms/normal-user", []byte(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	payload = `{ 
+          "publish":   { "allow": [">"] },
+          "subscribe": { "allow": [">"] }
+	}`
+	resp, _, err = curl("PUT", host+"/v1/auth/perms/admin-user", []byte(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	var data []byte
+	resp, data, err = curl("GET", host+"/v1/auth/perms/admin-user", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	var permission *api.Permissions
+	err = json.Unmarshal(data, &permission)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := &api.Permissions{
+		Publish: &api.PermissionRules{
+			Allow: []string{">"},
+		},
+		Subscribe: &api.PermissionRules{
+			Allow: []string{">"},
+		},
+	}
+	if !reflect.DeepEqual(expected, permission) {
+		t.Errorf("Expected: %+v\nGot: %+v", expected, permission)
+	}
+}

@@ -149,7 +149,7 @@ func (s *Server) HandleIdent(w http.ResponseWriter, req *http.Request) {
 			status = http.StatusInternalServerError
 			return
 		}
-		fmt.Fprint(w, js)
+		fmt.Fprint(w, string(js))
 	case "DELETE":
 		s.log.Debugf("Deleting user resource %q", name)
 		if name == "" {
