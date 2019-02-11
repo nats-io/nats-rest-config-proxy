@@ -67,6 +67,7 @@ func ConfigureOptions(args []string) (*Options, error) {
 		showHelp    bool
 		configFile  string
 		opts        *Options = &Options{}
+		dv          bool
 	)
 	fs.BoolVar(&showHelp, "h", false, "Show this message.")
 	fs.BoolVar(&showHelp, "help", false, "Show this message.")
@@ -78,6 +79,8 @@ func ConfigureOptions(args []string) (*Options, error) {
 	fs.BoolVar(&opts.Debug, "debug", false, "Enable Debug logging.")
 	fs.BoolVar(&opts.Trace, "V", false, "Enable Trace logging.")
 	fs.BoolVar(&opts.Trace, "trace", false, "Enable Trace logging.")
+	fs.BoolVar(&dv, "DV", false, "Enable Debug and Trace logging.")
+
 	fs.StringVar(&opts.Host, "addr", "0.0.0.0", "Network host to listen on.")
 	fs.StringVar(&opts.Host, "a", "0.0.0.0", "Network host to listen on.")
 	fs.IntVar(&opts.Port, "port", 4567, "Port to listen on.")
@@ -91,22 +94,25 @@ func ConfigureOptions(args []string) (*Options, error) {
 	if err := fs.Parse(args); err != nil {
 		return nil, err
 	}
-	if showVersion {
+
+	switch {
+	case showVersion:
 		fmt.Fprintf(os.Stderr, "%s v%s\n", AppName, Version)
 		os.Exit(0)
-	}
-	if showHelp {
+	case showHelp:
 		flag.Usage()
 		os.Exit(0)
-	}
-
-	if configFile != "" {
+	case configFile != "":
 		err := opts.ProcessConfigFile(configFile)
 		if err != nil {
 			return nil, err
 		}
 	}
 
+	if dv {
+		opts.Debug = true
+		opts.Trace = true
+	}
 	return opts, nil
 }
 
