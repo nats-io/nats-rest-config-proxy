@@ -1,0 +1,10 @@
+language: go
+go:
+  - 1.11
+
+go_import_path: github.com/nats-io/nats-acl-config-proxy
+dist: xenial
+sudo: false
+install: true
+script:
+  - env GO111MODULE=on go test ./... -v
