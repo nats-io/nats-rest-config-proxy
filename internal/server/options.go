@@ -61,6 +61,12 @@ type Options struct {
 
 	// KeyFile is the key for TLS from the server.
 	KeyFile string
+
+	// VerifyAndMap verifies the client certificate.
+	VerifyAndMap bool
+
+	// HTTPUsers are the users that can connect to the server.
+	HTTPUsers []string
 }
 
 func ConfigureOptions(args []string) (*Options, error) {
@@ -181,6 +187,25 @@ func (opts *Options) ProcessConfigFile(configFile string) error {
 					opts.KeyFile = o
 				}
 			}
+		case "auth":
+			m, ok := v.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("invalid config option: %+v", v)
+			}
+			users, ok := m["users"]
+			if !ok {
+				return fmt.Errorf("invalid config option: %+v", v)
+			}
+			httpUsers := make([]string, 0)
+			for _, v := range users.([]interface{}) {
+				mu, ok := v.(map[string]interface{})
+				if !ok {
+					return fmt.Errorf("invalid config option: %+v", v)
+				}
+				u := mu["user"].(string)
+				httpUsers = append(httpUsers, u)
+			}
+			opts.HTTPUsers = httpUsers
 		case "logging":
 			m, ok := v.(map[string]interface{})
 			if !ok {
