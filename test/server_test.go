@@ -13,7 +13,7 @@ import (
 
 	gnatsd "github.com/nats-io/gnatsd/test"
 	"github.com/nats-io/go-nats"
-	"github.com/nats-io/nats-acl-config-proxy/internal/server"
+	"github.com/nats-io/nats-rest-config-proxy/internal/server"
 )
 
 func waitServerIsReady(t *testing.T, ctx context.Context, host string) {

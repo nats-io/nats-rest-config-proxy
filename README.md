@@ -3,14 +3,14 @@
 ### Getting started
 
 ```sh
-go get -u github.com/nats-io/nats-acl-config-proxy
+go get -u github.com/nats-io/nats-rest-config-proxy
 ```
 
 ### Usage
 
 ```sh
-$ nats-acl-config-proxy -h
-Usage: nats-acl-config-proxy [options...]
+$ nats-rest-config-proxy -h
+Usage: nats-rest-config-proxy [options...]
 
   -D	Enable Debug logging.
   -V	Enable Trace logging.
@@ -36,10 +36,9 @@ Usage: nats-acl-config-proxy [options...]
 
 ```sh
 # Build locally using Go modules
-$ GO111MODULE=on go run cmd/nats-acl-config-proxy/main.go
-
-[57919] 2019/02/08 13:17:12.713611 [INF] Starting nats-acl-config-proxy v0.0.1
-[57919] 2019/02/08 13:17:12.713936 [INF] Listening on 0.0.0.0:4567
+$ GO111MODULE=on go run cmd/nats-rest-config-proxy/main.go
+[41405] 2019/02/11 16:18:52.713366 [INF] Starting nats-rest-config-proxy v0.0.1
+[41405] 2019/02/11 16:18:52.713804 [INF] Listening on 0.0.0.0:4567
 
 # To run the tests
 $ go test ./... -v

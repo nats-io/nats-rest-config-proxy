@@ -96,7 +96,6 @@ func (s *Server) Run(ctx context.Context) error {
 	s.log.Infof("Starting %s v%s", AppName, Version)
 
 	// Create required directories for storage if not present.
-	s.log.Debugf("Creating directories...")
 	err := s.setupStoreDirectories()
 	if err != nil {
 		defer s.quit()
@@ -242,9 +241,15 @@ func (s *Server) generateTLSConfig() (*tls.Config, error) {
 	// Create our TLS configuration
 	config := &tls.Config{
 		Certificates: []tls.Certificate{cert},
-		ClientAuth:   tls.NoClientCert,
 		MinVersion:   tls.VersionTLS12,
 	}
+
+	if s.opts.HTTPUsers != nil && len(s.opts.HTTPUsers) > 0 {
+		config.ClientAuth = tls.RequireAndVerifyClientCert
+	} else {
+		config.ClientAuth = tls.NoClientCert
+	}
+
 	// Add in CAs if applicable.
 	if s.opts.CaFile != "" {
 		rootPEM, err := ioutil.ReadFile(s.opts.CaFile)

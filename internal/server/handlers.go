@@ -25,7 +25,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nats-io/nats-acl-config-proxy/api"
+	"github.com/nats-io/nats-rest-config-proxy/api"
 )
 
 // HandlePerm handles a request to create/update permissions.
@@ -39,6 +39,13 @@ func (s *Server) HandlePerm(w http.ResponseWriter, req *http.Request) {
 		s.processErr(err, status, w, req)
 		s.log.traceRequest(req, size, status, time.Now())
 	}()
+
+	err = s.verifyAuth(w, req)
+	if err != nil {
+		status = http.StatusUnauthorized
+		return
+	}
+
 	name := strings.TrimPrefix(req.URL.Path, "/v1/auth/perms/")
 
 	// PUT
@@ -113,6 +120,13 @@ func (s *Server) HandleIdent(w http.ResponseWriter, req *http.Request) {
 		s.processErr(err, status, w, req)
 		s.log.traceRequest(req, size, status, time.Now())
 	}()
+
+	err = s.verifyAuth(w, req)
+	if err != nil {
+		status = http.StatusUnauthorized
+		return
+	}
+
 	name := strings.TrimPrefix(req.URL.Path, "/v1/auth/idents/")
 
 	switch req.Method {
@@ -182,6 +196,12 @@ func (s *Server) HandleSnapshot(w http.ResponseWriter, req *http.Request) {
 		s.log.traceRequest(req, size, status, time.Now())
 	}()
 
+	err = s.verifyAuth(w, req)
+	if err != nil {
+		status = http.StatusUnauthorized
+		return
+	}
+
 	// PUT
 	name := req.URL.Query().Get("name")
 	if name == "" {
@@ -213,6 +233,12 @@ func (s *Server) HandlePublish(w http.ResponseWriter, req *http.Request) {
 		s.processErr(err, status, w, req)
 		s.log.traceRequest(req, size, status, time.Now())
 	}()
+
+	err = s.verifyAuth(w, req)
+	if err != nil {
+		status = http.StatusUnauthorized
+		return
+	}
 
 	name := req.URL.Query().Get("name")
 	if name == "" {
@@ -281,6 +307,12 @@ func (s *Server) HandlePerms(w http.ResponseWriter, req *http.Request) {
 		s.log.traceRequest(req, size, status, time.Now())
 	}()
 
+	err = s.verifyAuth(w, req)
+	if err != nil {
+		status = http.StatusUnauthorized
+		return
+	}
+
 	switch req.Method {
 	case "GET":
 		var (
@@ -318,6 +350,12 @@ func (s *Server) HandleIdents(w http.ResponseWriter, req *http.Request) {
 		s.log.traceRequest(req, size, status, time.Now())
 	}()
 
+	err = s.verifyAuth(w, req)
+	if err != nil {
+		status = http.StatusUnauthorized
+		return
+	}
+
 	switch req.Method {
 	case "GET":
 		var (
@@ -348,9 +386,34 @@ func (s *Server) HandleHealthz(w http.ResponseWriter, req *http.Request) {
 	var (
 		size   int
 		status int = http.StatusOK
+		err    error
 	)
-	defer s.log.traceRequest(req, size, status, time.Now())
+	defer func() {
+		s.processErr(err, status, w, req)
+		s.log.traceRequest(req, size, status, time.Now())
+	}()
+	err = s.verifyAuth(w, req)
+	if err != nil {
+		status = http.StatusUnauthorized
+		return
+	}
 	fmt.Fprintf(w, "OK\n")
+}
+
+func (s *Server) verifyAuth(w http.ResponseWriter, req *http.Request) error {
+	if req.TLS != nil && len(req.TLS.PeerCertificates) > 0 {
+		cert := req.TLS.PeerCertificates[0]
+		subject := cert.Subject.String()
+		s.log.Debugf("Verifying TLS Cert with Subject %q", subject)
+		for _, user := range s.opts.HTTPUsers {
+			if user == subject {
+				return nil
+			}
+		}
+		return errors.New("authorization failed")
+	}
+
+	return nil
 }
 
 func (s *Server) processErr(err error, status int, w http.ResponseWriter, req *http.Request) {
