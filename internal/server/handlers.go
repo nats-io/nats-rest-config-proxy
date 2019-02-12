@@ -25,7 +25,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nats-io/nats-acl-config-proxy/api"
+	"github.com/nats-io/nats-rest-config-proxy/api"
 )
 
 // HandlePerm handles a request to create/update permissions.

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nats-io/nats-acl-config-proxy/internal/server"
+	"github.com/nats-io/nats-rest-config-proxy/internal/server"
 )
 
 func TestTLSSetup(t *testing.T) {
@@ -25,7 +25,6 @@ func TestTLSSetup(t *testing.T) {
 	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 	time.AfterFunc(2*time.Second, func() {
 		s.Shutdown(ctx)
-		fmt.Println("never finishes?????")
 	})
 	done := make(chan struct{})
 	go func() {
@@ -60,13 +59,10 @@ func TestTLSSetup(t *testing.T) {
 		}
 
 		resp, err := client.Get(host + "/healthz")
-		fmt.Printf("OK? %+v || %+v\n", resp, err)
 		if err != nil {
-			fmt.Printf("Error: %s\n", err)
 			continue
 		}
 		if resp != nil && resp.StatusCode == 200 {
-			fmt.Println("OK?")
 			break
 		}
 	}
