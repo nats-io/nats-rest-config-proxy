@@ -25,7 +25,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nats-io/nats-acl-config-proxy/api"
+	"github.com/nats-io/nats-rest-config-proxy/api"
 )
 
 func createFixtures(t *testing.T, host string) {
