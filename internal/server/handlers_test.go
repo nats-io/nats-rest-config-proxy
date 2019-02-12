@@ -48,7 +48,6 @@ func createFixtures(t *testing.T, host string) {
 
 	// Create a couple of users
 	payload = `{
-
 	  "username": "first-user",
 	  "password": "secret",
           "permissions": "normal-user"
