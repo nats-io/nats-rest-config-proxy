@@ -3,6 +3,7 @@
 
 rm -rf ./cov
 mkdir cov
+export GO111MODULE=on
 go test -v -covermode=atomic -coverprofile=./cov/server.out ./internal/server
 go test -v -covermode=atomic -coverprofile=./cov/api.out ./api
 go test -v -covermode=atomic -coverprofile=./cov/test.out -coverpkg=./internal/server ./test
