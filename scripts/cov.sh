@@ -1,5 +1,7 @@
 #!/bin/bash -e
 # Run from directory above via ./scripts/cov.sh
+env GO111MODULE=off go get github.com/mattn/goveralls
+env GO111MODULE=off go get github.com/wadey/gocovmerge
 
 rm -rf ./cov
 mkdir cov
