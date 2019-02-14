@@ -1,3 +1,4 @@
+
 package test
 
 import (
@@ -16,21 +17,13 @@ import (
 func TestTLSSetup(t *testing.T) {
 	// Create a data directory.
 	opts := DefaultOptions()
-	opts.Port = 4568
 	opts.CaFile = "certs/ca.pem"
 	opts.CertFile = "certs/server.pem"
 	opts.KeyFile = "certs/server-key.pem"
 	s := server.NewServer(opts)
 	host := fmt.Sprintf("https://%s:%d", opts.Host, opts.Port)
-	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
-	time.AfterFunc(2*time.Second, func() {
-		s.Shutdown(ctx)
-	})
-	done := make(chan struct{})
-	go func() {
-		s.Run(ctx)
-		done <- struct{}{}
-	}()
+	ctx, done := context.WithTimeout(context.Background(), 5*time.Second)
+	go s.Run(ctx)
 
 	// Wait until https healthz is ok
 	caCert, err := ioutil.ReadFile("certs/ca.pem")
@@ -66,27 +59,21 @@ func TestTLSSetup(t *testing.T) {
 			break
 		}
 	}
+
+	done()
 }
 
-func SkipTestTLSAuth(t *testing.T) {
+func TestTLSAuth(t *testing.T) {
 	// Create a data directory.
 	opts := DefaultOptions()
-	opts.Port = 4568
 	opts.CaFile = "certs/ca.pem"
 	opts.CertFile = "certs/server.pem"
 	opts.KeyFile = "certs/server-key.pem"
 	opts.HTTPUsers = []string{"CN=cncf.example.com,OU=CNCF", "CN=nats.example.com,OU=NATS.io"}
 	s := server.NewServer(opts)
 	host := fmt.Sprintf("https://%s:%d", opts.Host, opts.Port)
-	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
-	time.AfterFunc(2*time.Second, func() {
-		s.Shutdown(ctx)
-	})
-	done := make(chan struct{})
-	go func() {
-		s.Run(ctx)
-		done <- struct{}{}
-	}()
+	ctx, done := context.WithTimeout(context.Background(), 5*time.Second)
+	go s.Run(ctx)
 
 	// Wait until https healthz is ok.
 	caCert, err := ioutil.ReadFile("certs/ca.pem")
@@ -169,4 +156,5 @@ func SkipTestTLSAuth(t *testing.T) {
 			}
 		}
 	}
+	done()
 }

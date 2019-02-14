@@ -178,7 +178,8 @@ func (s *Server) Shutdown(ctx context.Context) error {
 		return err
 	}
 	s.quit()
-	return err
+
+	return nil
 }
 
 // SetupSignalHandler enables handling process signals.
