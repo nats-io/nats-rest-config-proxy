@@ -168,10 +168,14 @@ func (s *Server) ListenAndServe(addr string) error {
 
 // Shutdown stops the server.
 func (s *Server) Shutdown(ctx context.Context) error {
+	var err error
 	s.log.Infof("Shutting down...")
-	err := s.http.Shutdown(ctx)
-	if err != nil {
-		s.log.Errorf("Error closing http connections: %s", err)
+	if s.http != nil {
+		err = s.http.Shutdown(ctx)
+		if err != nil {
+			s.log.Errorf("Error closing http connections: %s", err)
+		}
+		return err
 	}
 	s.quit()
 	return err
