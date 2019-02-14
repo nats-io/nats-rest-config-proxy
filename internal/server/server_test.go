@@ -25,6 +25,8 @@ import (
 	"time"
 )
 
+var testPort int = 4567
+
 func newTestServer() (*Server, error) {
 	dir, err := ioutil.TempDir("", "acl-proxy-data-dir-")
 	if err != nil {
@@ -36,13 +38,13 @@ func newTestServer() (*Server, error) {
 		Debug:     true,
 		Trace:     true,
 		Host:      "localhost",
-		Port:      4567,
+		Port:      testPort,
 		DataDir:   dir,
 	}
 	if os.Getenv("DEBUG") == "true" {
 		opts.NoLog = false
 	}
-
+	testPort += 1
 	s := &Server{opts: opts}
 	return s, nil
 }

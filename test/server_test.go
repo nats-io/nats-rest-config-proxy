@@ -83,6 +83,8 @@ func curl(method string, endpoint string, payload []byte) (*http.Response, []byt
 	return resp, body, nil
 }
 
+var testPort int = 5567
+
 func DefaultOptions() *server.Options {
 	opts := &server.Options{
 		NoSignals: true,
@@ -90,12 +92,13 @@ func DefaultOptions() *server.Options {
 		Debug:     true,
 		Trace:     true,
 		Host:      "localhost",
-		Port:      4567,
+		Port:      testPort,
 		DataDir:   "./data",
 	}
 	if os.Getenv("DEBUG") == "true" {
 		opts.NoLog = false
 	}
+	testPort += 1
 
 	return opts
 }
