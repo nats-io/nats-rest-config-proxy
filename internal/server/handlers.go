@@ -70,7 +70,7 @@ func (s *Server) HandlePerm(w http.ResponseWriter, req *http.Request) {
 		s.log.Tracef("Permission %q: %s", name, string(payload))
 
 		// Should get a type here instead
-		err = s.storePermissionResource(name, payload)
+		err = s.storePermissionResource(name, p)
 		if err != nil {
 			status = http.StatusInternalServerError
 			return
@@ -140,9 +140,17 @@ func (s *Server) HandleIdent(w http.ResponseWriter, req *http.Request) {
 		}
 		size = len(payload)
 
+		// Validate that it is a user
+		var u *api.User
+		err = json.Unmarshal(payload, &u)
+		if err != nil {
+			status = http.StatusBadRequest
+			return
+		}
+
 		// Store permission
-		s.log.Tracef("User %q: %v", name, string(payload))
-		err = s.storeUserResource(name, payload)
+		s.log.Tracef("User %q: %v", name, u)
+		err = s.storeUserResource(name, u)
 		if err != nil {
 			status = http.StatusInternalServerError
 			return

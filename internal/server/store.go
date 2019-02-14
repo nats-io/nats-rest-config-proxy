@@ -25,14 +25,22 @@ import (
 )
 
 // storePermissionResource
-func (s *Server) storePermissionResource(name string, payload []byte) error {
+func (s *Server) storePermissionResource(name string, permission *api.Permissions) error {
 	path := filepath.Join(s.resourcesDir(), "permissions", fmt.Sprintf("%s.json", name))
+	payload, err := permission.AsJSON()
+	if err != nil {
+		return err
+	}
 	return ioutil.WriteFile(path, payload, 0666)
 }
 
 // storeUserResource
-func (s *Server) storeUserResource(name string, payload []byte) error {
+func (s *Server) storeUserResource(name string, user *api.User) error {
 	path := filepath.Join(s.resourcesDir(), "users", fmt.Sprintf("%s.json", name))
+	payload, err := user.AsJSON()
+	if err != nil {
+		return err
+	}
 	return ioutil.WriteFile(path, payload, 0666)
 }
 
