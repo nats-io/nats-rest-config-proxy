@@ -156,14 +156,15 @@ func (opts *Options) ProcessConfigFile(configFile string) error {
 				}
 			}
 		case "data_dir":
-			switch o := v.(type) {
-			case string:
+			if o, ok := v.(string); ok {
 				opts.DataDir = o
+			} else {
+				return fmt.Errorf("invalid data dir: %+v", v)
 			}
 		case "tls":
 			m, ok := v.(map[string]interface{})
 			if !ok {
-				return fmt.Errorf("invalid config option: %+v", v)
+				return fmt.Errorf("invalid tls option: %+v", v)
 			}
 			for k, v := range m {
 				switch k {
@@ -190,19 +191,22 @@ func (opts *Options) ProcessConfigFile(configFile string) error {
 		case "auth":
 			m, ok := v.(map[string]interface{})
 			if !ok {
-				return fmt.Errorf("invalid config option: %+v", v)
+				return fmt.Errorf("invalid auth config option: %+v", v)
 			}
 			users, ok := m["users"]
 			if !ok {
-				return fmt.Errorf("invalid config option: %+v", v)
+				return fmt.Errorf("invalid auth config option: %+v", v)
 			}
 			httpUsers := make([]string, 0)
 			for _, v := range users.([]interface{}) {
 				mu, ok := v.(map[string]interface{})
 				if !ok {
-					return fmt.Errorf("invalid config option: %+v", v)
+					return fmt.Errorf("invalid auth config option: %+v", v)
 				}
-				u := mu["user"].(string)
+				u, ok := mu["user"].(string)
+				if !ok {
+					return fmt.Errorf("invalid auth config option: %+v", v)
+				}
 				httpUsers = append(httpUsers, u)
 			}
 			opts.HTTPUsers = httpUsers
