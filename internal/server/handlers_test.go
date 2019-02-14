@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -80,31 +81,21 @@ func TestHealthz(t *testing.T) {
 	}
 	defer os.RemoveAll(s.opts.DataDir)
 
-	ctx, done := context.WithTimeout(context.Background(), 2*time.Second)
-	defer done()
-	go s.Run(ctx)
-	defer func() {
-		s.Shutdown(ctx)
-		waitServerIsDone(t, ctx, s)
-	}()
-
-	for range time.NewTicker(50 * time.Millisecond).C {
-		select {
-		case <-ctx.Done():
-			if ctx.Err() == context.Canceled {
-				t.Fatal()
-			}
-		default:
-		}
-
-		resp, err := http.Get("http://127.0.0.1:4567/healthz")
-		if err != nil {
-			t.Logf("Error: %s", err)
-			continue
-		}
-		if resp.StatusCode == 200 {
-			break
-		}
+	// Confirm request/response
+	req, err := http.NewRequest("GET", "/healthz", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(s.HandleHealthz)
+	handler.ServeHTTP(rr, req)
+	if got := rr.Code; got != http.StatusOK {
+		t.Errorf("Expected %v, got: %v", http.StatusOK, got)
+	}
+	expected := "OK\n"
+	if rr.Body.String() != expected {
+		t.Errorf("Expected: %v, got: %v",
+			rr.Body.String(), expected)
 	}
 }
 
