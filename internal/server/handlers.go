@@ -100,6 +100,21 @@ func (s *Server) HandlePerm(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
+		// Confirm that no user is using this resource.
+		var users []*api.User
+		users, err = s.getUsers()
+		if err != nil {
+			status = http.StatusInternalServerError
+			return
+		}
+		for _, u := range users {
+			if u.Permissions == name {
+				err = fmt.Errorf("User %q is using permission %q", u.Username, name)
+				status = http.StatusConflict
+				return
+			}
+		}
+
 		err = s.deletePermissionResource(name)
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -385,7 +400,7 @@ func (s *Server) HandlePerms(w http.ResponseWriter, req *http.Request) {
 			if conflict {
 				status = http.StatusConflict
 			} else {
-				status = http.StatusInternalServerError				
+				status = http.StatusInternalServerError
 			}
 			return
 		}

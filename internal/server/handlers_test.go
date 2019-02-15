@@ -477,6 +477,22 @@ func TestDeletePermissions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if resp.StatusCode != 409 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	resp, _, err = curl("DELETE", host+"/v1/auth/idents/first-user", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	resp, _, err = curl("DELETE", host+"/v1/auth/idents/second-user", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
 	if resp.StatusCode != 200 {
 		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
 	}
@@ -494,16 +510,7 @@ func TestDeletePermissions(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected := `{
-  "users": [
-    {
-      "username": "first-user",
-      "password": "secret"
-    },
-    {
-      "username": "second-user",
-      "password": "secret"
-    }
-  ]
+  "users": []
 }
 `
 	got := string(config)
