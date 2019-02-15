@@ -23,6 +23,34 @@ import (
 	"github.com/nats-io/gnatsd/conf"
 )
 
+var usageStr = `
+Server Options:
+    -a, --addr <host>             Bind to host address (default: 0.0.0.0)
+    -p, --port <port>             Use port for clients (default: 4567)
+    -d, --dir <directory>         Directory for storing data
+    -c, --config <file>           Configuration file
+    -f, --publish-script <file>   Path to an optional script to execute on publish
+
+Logging Options:
+    -D, --debug                   Enable debugging output
+    -V, --trace                   Enable trace logging
+    -DV                           Debug and trace
+
+TLS Options:
+    --cert <file>                 Server certificate file
+    --key <file>                  Private key for server certificate
+    --cacert <file>               Client certificate CA for verification
+
+Common Options:
+    -h, --help                    Show this message
+    -v, --version                 Show version
+`
+
+// usage will print out the flag options for the server.
+func usage() {
+	fmt.Printf("%s\n", usageStr)
+}
+
 // Options for the server.
 type Options struct {
 	// NoSignals marks whether to enable the signal handler.
@@ -72,8 +100,8 @@ type Options struct {
 func ConfigureOptions(args []string) (*Options, error) {
 	fs := flag.NewFlagSet(AppName, flag.ExitOnError)
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: %s [options...]\n\n", AppName)
-		fs.PrintDefaults()
+		fmt.Fprintf(os.Stderr, "Usage: %s [options...]\n", AppName)
+		fmt.Fprintf(os.Stderr, usageStr)
 		fmt.Fprintf(os.Stderr, "\n")
 	}
 

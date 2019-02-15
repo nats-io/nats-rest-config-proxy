@@ -210,6 +210,30 @@ func TestOptions(t *testing.T) {
 			},
 			nil,
 		},
+		{
+			"defaults flags",
+			[]string{""},
+			"",
+			&Options{
+				Host:    "0.0.0.0",
+				Port:    4567,
+				DataDir: "./data",
+			},
+			nil,
+		},
+		{
+			"debug and trace",
+			[]string{"-DV"},
+			"",
+			&Options{
+				Host:    "0.0.0.0",
+				Port:    4567,
+				DataDir: "./data",
+				Debug:   true,
+				Trace:   true,
+			},
+			nil,
+		},
 	}
 
 	for _, test := range tests {
@@ -220,14 +244,14 @@ func TestOptions(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			file := filepath.Join(dir, "server.conf")
-
-			err = ioutil.WriteFile(file, []byte(test.conf), 0644)
-			if err != nil {
-				t.Fatal(err)
+			if test.conf != "" {
+				file := filepath.Join(dir, "server.conf")
+				err = ioutil.WriteFile(file, []byte(test.conf), 0644)
+				if err != nil {
+					t.Fatal(err)
+				}
+				args = append(args, "-c", file)
 			}
-
-			args = append(args, "-c", file)
 			opts, err := ConfigureOptions(args)
 			if err != nil {
 				if test.err == nil {
@@ -304,5 +328,13 @@ func TestTLSConfig(t *testing.T) {
 	config, err = s.generateTLSConfig()
 	if err == nil {
 		t.Fatalf("Expected error when generating config: %s", err)
+	}
+}
+
+func TestConfigureBadFile(t *testing.T) {
+	f := []string{"-c", "./../../test/certs/server.pem"}
+	_, err := ConfigureOptions(f)
+	if err == nil {
+		t.Fatal("Expected error configuring server")
 	}
 }
