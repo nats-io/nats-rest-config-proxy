@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -67,10 +68,10 @@ func (s *Server) HandlePerm(w http.ResponseWriter, req *http.Request) {
 			status = http.StatusBadRequest
 			return
 		}
-		s.log.Tracef("Permission %q: %s", name, string(payload))
+		s.log.Tracef("Permission %q: %+v", name, p)
 
 		// Should get a type here instead
-		err = s.storePermissionResource(name, payload)
+		err = s.storePermissionResource(name, p)
 		if err != nil {
 			status = http.StatusInternalServerError
 			return
@@ -78,12 +79,14 @@ func (s *Server) HandlePerm(w http.ResponseWriter, req *http.Request) {
 		fmt.Fprintf(w, "Perm: %s\n", name)
 	case "GET":
 		s.log.Debugf("Retrieving permission resource %q", name)
-		resource, err := s.getPermissionResource(name)
+		var resource *api.Permissions
+		resource, err = s.getPermissionResource(name)
 		if err != nil {
 			status = http.StatusInternalServerError
 			return
 		}
-		payload, err := resource.AsJSON()
+		var payload []byte
+		payload, err = resource.AsJSON()
 		if err != nil {
 			status = http.StatusInternalServerError
 			return
@@ -99,7 +102,11 @@ func (s *Server) HandlePerm(w http.ResponseWriter, req *http.Request) {
 
 		err = s.deletePermissionResource(name)
 		if err != nil {
-			status = http.StatusInternalServerError
+			if os.IsNotExist(err) {
+				status = http.StatusNotFound
+			} else {
+				status = http.StatusInternalServerError
+			}
 			return
 		}
 		fmt.Fprintf(w, "Deleted permission resource %q", name)
@@ -140,9 +147,17 @@ func (s *Server) HandleIdent(w http.ResponseWriter, req *http.Request) {
 		}
 		size = len(payload)
 
+		// Validate that it is a user
+		var u *api.User
+		err = json.Unmarshal(payload, &u)
+		if err != nil {
+			status = http.StatusBadRequest
+			return
+		}
+
 		// Store permission
-		s.log.Tracef("User %q: %v", name, string(payload))
-		err = s.storeUserResource(name, payload)
+		s.log.Tracef("User %q: %+v", name, u)
+		err = s.storeUserResource(name, u)
 		if err != nil {
 			status = http.StatusInternalServerError
 			return
@@ -154,7 +169,12 @@ func (s *Server) HandleIdent(w http.ResponseWriter, req *http.Request) {
 		var resource *api.User
 		resource, err = s.getUserResource(name)
 		if err != nil {
-			status = http.StatusInternalServerError
+			if os.IsNotExist(err) {
+				status = http.StatusNotFound
+			} else {
+				status = http.StatusInternalServerError
+			}
+
 			return
 		}
 		var js []byte
@@ -174,7 +194,11 @@ func (s *Server) HandleIdent(w http.ResponseWriter, req *http.Request) {
 
 		err = s.deleteUserResource(name)
 		if err != nil {
-			status = http.StatusInternalServerError
+			if os.IsNotExist(err) {
+				status = http.StatusNotFound
+			} else {
+				status = http.StatusInternalServerError
+			}
 			return
 		}
 		fmt.Fprintf(w, "Deleted user resource %q", name)
@@ -202,7 +226,6 @@ func (s *Server) HandleSnapshot(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// PUT
 	name := req.URL.Query().Get("name")
 	if name == "" {
 		name = DefaultSnapshotName
@@ -216,6 +239,30 @@ func (s *Server) HandleSnapshot(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		fmt.Fprintf(w, "Config snapshot %q created\n", name)
+	case "GET":
+		var data []byte
+		data, err = s.getConfigSnapshot(name)
+		if err != nil {
+			if os.IsNotExist(err) {
+				status = http.StatusNotFound
+				return
+			}
+			status = http.StatusInternalServerError
+			return
+		}
+		fmt.Fprintf(w, string(data))
+	case "DELETE":
+		s.log.Infof("Deleting config snapshot %q", name)
+		err = s.deleteConfigSnapshot(name)
+		if err != nil {
+			if os.IsNotExist(err) {
+				status = http.StatusNotFound
+			} else {
+				status = http.StatusInternalServerError
+			}
+			return
+		}
+		fmt.Fprintf(w, "OK\n")
 	default:
 		status = http.StatusMethodNotAllowed
 		err = fmt.Errorf("%s is not allowed on %q", req.Method, req.URL.Path)

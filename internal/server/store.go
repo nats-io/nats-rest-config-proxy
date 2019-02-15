@@ -25,14 +25,22 @@ import (
 )
 
 // storePermissionResource
-func (s *Server) storePermissionResource(name string, payload []byte) error {
+func (s *Server) storePermissionResource(name string, permission *api.Permissions) error {
 	path := filepath.Join(s.resourcesDir(), "permissions", fmt.Sprintf("%s.json", name))
+	payload, err := permission.AsJSON()
+	if err != nil {
+		return err
+	}
 	return ioutil.WriteFile(path, payload, 0666)
 }
 
 // storeUserResource
-func (s *Server) storeUserResource(name string, payload []byte) error {
+func (s *Server) storeUserResource(name string, user *api.User) error {
 	path := filepath.Join(s.resourcesDir(), "users", fmt.Sprintf("%s.json", name))
+	payload, err := user.AsJSON()
+	if err != nil {
+		return err
+	}
 	return ioutil.WriteFile(path, payload, 0666)
 }
 
@@ -93,12 +101,6 @@ func (s *Server) getUsers() ([]*api.User, error) {
 
 func (s *Server) deletePermissionResource(name string) error {
 	path := filepath.Join(s.resourcesDir(), "permissions", fmt.Sprintf("%s.json", name))
-
-	// If already gone then no need to delete...
-	if _, err := os.Stat(path); err != nil && os.IsNotExist(err) {
-		return nil
-	}
-
 	return os.Remove(path)
 }
 
@@ -119,12 +121,6 @@ func (s *Server) getUserResource(name string) (*api.User, error) {
 
 func (s *Server) deleteUserResource(name string) error {
 	path := filepath.Join(s.resourcesDir(), "users", fmt.Sprintf("%s.json", name))
-
-	// If already gone then no need to delete...
-	if _, err := os.Stat(path); err != nil && os.IsNotExist(err) {
-		return nil
-	}
-
 	return os.Remove(path)
 }
 
@@ -136,12 +132,6 @@ func (s *Server) getConfigSnapshot(name string) ([]byte, error) {
 
 func (s *Server) deleteConfigSnapshot(name string) error {
 	path := filepath.Join(s.snapshotsDir(), fmt.Sprintf("%s.json", name))
-
-	// If already gone then no need to delete...
-	if _, err := os.Stat(path); err != nil && os.IsNotExist(err) {
-		return nil
-	}
-
 	return os.Remove(path)
 }
 
@@ -168,8 +158,7 @@ func (s *Server) buildConfigSnapshot(name string) error {
 
 		p, ok := permissions[u.Permissions]
 		if !ok {
-			s.log.Tracef("User %q will use default permissions", u.Username)
-			continue
+			s.log.Warnf("User %q will use default permissions", u.Username)
 		}
 
 		user := &api.ConfigUser{

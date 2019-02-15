@@ -21,6 +21,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"reflect"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -46,7 +48,17 @@ func newTestServer() (*Server, error) {
 	}
 	testPort += 1
 	s := &Server{opts: opts}
+
+	// Setup test server for handler without binding port
+	l := NewDefaultLogger()
+	l.logger.SetOutput(ioutil.Discard)
+	s.log = l
+	err = s.setupStoreDirectories()
+	if err != nil {
+		return nil, err
+	}
 	return s, nil
+
 }
 
 func waitServerIsReady(t *testing.T, ctx context.Context, s *Server) {
@@ -104,9 +116,11 @@ func curl(method string, endpoint string, payload []byte) (*http.Response, []byt
 		return nil, nil, err
 	}
 	if len(result.Query()) > 0 {
+		q := req.URL.Query()
 		for k, v := range result.Query() {
-			req.URL.Query().Add(k, string(v[0]))
+			q.Add(k, string(v[0]))
 		}
+		req.URL.RawQuery = q.Encode()
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -141,5 +155,39 @@ func TestServerSetup(t *testing.T) {
 	_, err = os.Stat(s.currentConfigDir())
 	if err != nil {
 		t.Error(err)
+	}
+}
+
+func TestNewServer(t *testing.T) {
+	expected := &Server{opts: &Options{}}
+	got := NewServer(nil)
+	if !reflect.DeepEqual(got, expected) {
+		t.Errorf("Expected %+v, got: %+v", expected, got)
+	}
+}
+
+func TestServerSignalHandler(t *testing.T) {
+	s, err := newTestServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(s.opts.DataDir)
+	s.opts.NoSignals = false
+
+	called := make(chan struct{}, 0)
+	s.quit = func() {
+		called <- struct{}{}
+	}
+	ctx, done := context.WithCancel(context.Background())
+	go s.SetupSignalHandler(ctx)
+
+	time.Sleep(100 * time.Millisecond)
+	syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
+
+	select {
+	case <-time.After(1 * time.Second):
+		t.Fatal("Time out waiting for server to exit")
+	case <-called:
+		done()
 	}
 }

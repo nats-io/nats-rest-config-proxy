@@ -15,10 +15,13 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -80,31 +83,21 @@ func TestHealthz(t *testing.T) {
 	}
 	defer os.RemoveAll(s.opts.DataDir)
 
-	ctx, done := context.WithTimeout(context.Background(), 2*time.Second)
-	defer done()
-	go s.Run(ctx)
-	defer func() {
-		s.Shutdown(ctx)
-		waitServerIsDone(t, ctx, s)
-	}()
-
-	for range time.NewTicker(50 * time.Millisecond).C {
-		select {
-		case <-ctx.Done():
-			if ctx.Err() == context.Canceled {
-				t.Fatal()
-			}
-		default:
-		}
-
-		resp, err := http.Get("http://127.0.0.1:4567/healthz")
-		if err != nil {
-			t.Logf("Error: %s", err)
-			continue
-		}
-		if resp.StatusCode == 200 {
-			break
-		}
+	// Confirm request/response
+	req, err := http.NewRequest("GET", "/healthz", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(s.HandleHealthz)
+	handler.ServeHTTP(rr, req)
+	if got := rr.Code; got != http.StatusOK {
+		t.Errorf("Expected %v, got: %v", http.StatusOK, got)
+	}
+	expected := "OK\n"
+	if rr.Body.String() != expected {
+		t.Errorf("Expected: %v, got: %v",
+			rr.Body.String(), expected)
 	}
 }
 
@@ -419,6 +412,14 @@ func TestDeletePermissionsNameMissing(t *testing.T) {
 		t.Fatalf("Expected bad request, got: %v", resp.StatusCode)
 	}
 
+	resp, _, err = curl("DELETE", host+"/v1/auth/perms/not-found", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 404 {
+		t.Fatalf("Expected bad request, got: %v", resp.StatusCode)
+	}
+
 	resp, _, err = curl("DELETE", host+"/v1/auth/perms", []byte(""))
 	if err != nil {
 		t.Fatal(err)
@@ -487,7 +488,7 @@ func TestDeletePermissions(t *testing.T) {
 	host := fmt.Sprintf("http://%s:%d", s.opts.Host, s.opts.Port)
 	createFixtures(t, host)
 
-	resp, _, err := curl("DELETE", host+"/v1/auth/perms/second-user", []byte(""))
+	resp, _, err := curl("DELETE", host+"/v1/auth/perms/normal-user", []byte(""))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -511,37 +512,11 @@ func TestDeletePermissions(t *testing.T) {
   "users": [
     {
       "username": "first-user",
-      "password": "secret",
-      "permissions": {
-        "publish": {
-          "allow": [
-            "foo.*",
-            "bar.>"
-          ]
-        },
-        "subscribe": {
-          "deny": [
-            "quux"
-          ]
-        }
-      }
+      "password": "secret"
     },
     {
       "username": "second-user",
-      "password": "secret",
-      "permissions": {
-        "publish": {
-          "allow": [
-            "foo.*",
-            "bar.>"
-          ]
-        },
-        "subscribe": {
-          "deny": [
-            "quux"
-          ]
-        }
-      }
+      "password": "secret"
     }
   ]
 }
@@ -777,5 +752,364 @@ func TestGetSinglePermission(t *testing.T) {
 	}
 	if !reflect.DeepEqual(expected, permission) {
 		t.Errorf("Expected: %+v\nGot: %+v", expected, permission)
+	}
+}
+
+func TestSnapshotHandler(t *testing.T) {
+	s, err := newTestServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(s.opts.DataDir)
+
+	ctx, done := context.WithTimeout(context.Background(), 2*time.Second)
+	defer done()
+	go s.Run(ctx)
+	defer func() {
+		s.Shutdown(ctx)
+		waitServerIsDone(t, ctx, s)
+	}()
+
+	waitServerIsReady(t, ctx, s)
+
+	host := fmt.Sprintf("http://%s:%d", s.opts.Host, s.opts.Port)
+	createFixtures(t, host)
+
+	// Publish the snapshot
+	resp, _, err := curl("POST", host+"/v1/auth/snapshot", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	config, err := s.getConfigSnapshot("latest")
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := `{
+  "users": [
+    {
+      "username": "first-user",
+      "password": "secret",
+      "permissions": {
+        "publish": {
+          "allow": [
+            "foo.*",
+            "bar.>"
+          ]
+        },
+        "subscribe": {
+          "deny": [
+            "quux"
+          ]
+        }
+      }
+    },
+    {
+      "username": "second-user",
+      "password": "secret",
+      "permissions": {
+        "publish": {
+          "allow": [
+            "foo.*",
+            "bar.>"
+          ]
+        },
+        "subscribe": {
+          "deny": [
+            "quux"
+          ]
+        }
+      }
+    }
+  ]
+}
+`
+	got := string(config)
+	if expected != got {
+		t.Fatalf("Expected: %s\n, got: %s", expected, got)
+	}
+}
+
+func TestSnapshotWithNameHandler(t *testing.T) {
+	s, err := newTestServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(s.opts.DataDir)
+
+	ctx, done := context.WithTimeout(context.Background(), 2*time.Second)
+	defer done()
+	go s.Run(ctx)
+	defer func() {
+		s.Shutdown(ctx)
+		waitServerIsDone(t, ctx, s)
+	}()
+
+	waitServerIsReady(t, ctx, s)
+
+	host := fmt.Sprintf("http://%s:%d", s.opts.Host, s.opts.Port)
+	createFixtures(t, host)
+
+	// Publish the snapshot
+	resp, _, err := curl("POST", host+"/v1/auth/snapshot?name=sample", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	config, err := s.getConfigSnapshot("sample")
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := `{
+  "users": [
+    {
+      "username": "first-user",
+      "password": "secret",
+      "permissions": {
+        "publish": {
+          "allow": [
+            "foo.*",
+            "bar.>"
+          ]
+        },
+        "subscribe": {
+          "deny": [
+            "quux"
+          ]
+        }
+      }
+    },
+    {
+      "username": "second-user",
+      "password": "secret",
+      "permissions": {
+        "publish": {
+          "allow": [
+            "foo.*",
+            "bar.>"
+          ]
+        },
+        "subscribe": {
+          "deny": [
+            "quux"
+          ]
+        }
+      }
+    }
+  ]
+}
+`
+	got := string(config)
+	if expected != got {
+		t.Fatalf("Expected: %s\n, got: %s", expected, got)
+	}
+}
+
+func TestSnapshotWithNameDelete(t *testing.T) {
+	s, err := newTestServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(s.opts.DataDir)
+
+	ctx, done := context.WithTimeout(context.Background(), 2*time.Second)
+	defer done()
+	go s.Run(ctx)
+	defer func() {
+		s.Shutdown(ctx)
+		waitServerIsDone(t, ctx, s)
+	}()
+
+	waitServerIsReady(t, ctx, s)
+
+	host := fmt.Sprintf("http://%s:%d", s.opts.Host, s.opts.Port)
+	createFixtures(t, host)
+
+	// Publish the snapshot
+	resp, _, err := curl("POST", host+"/v1/auth/snapshot?name=foo", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Delete the snapshot
+	resp, _, err = curl("DELETE", host+"/v1/auth/snapshot?name=foo", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Delete non existant snapshot
+	resp2, _, err := curl("DELETE", host+"/v1/auth/snapshot?name=foo", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp2.StatusCode != 404 {
+		t.Fatalf("Expected 404, got: %v", resp.StatusCode)
+	}
+}
+
+func TestDeleteUser(t *testing.T) {
+	s, err := newTestServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(s.opts.DataDir)
+
+	ctx, done := context.WithTimeout(context.Background(), 2*time.Second)
+	defer done()
+	go s.Run(ctx)
+	defer s.Shutdown(ctx)
+	waitServerIsReady(t, ctx, s)
+
+	host := fmt.Sprintf("http://%s:%d", s.opts.Host, s.opts.Port)
+	createFixtures(t, host)
+
+	resp, _, err := curl("DELETE", host+"/v1/auth/idents/first-user", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	resp, _, err = curl("GET", host+"/v1/auth/idents/first-user", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 404 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	resp, _, err = curl("DELETE", host+"/v1/auth/idents/first-user", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 404 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+}
+
+func TestVerifyAuthFails(t *testing.T) {
+	s, err := newTestServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(s.opts.DataDir)
+
+	s.opts.CertFile = "./../../test/certs/server.pem"
+	s.opts.KeyFile = "./../../test/certs/server-key.pem"
+	s.opts.CaFile = "./../../test/certs/ca.pem"
+	config, err := s.generateTLSConfig()
+	if err != nil {
+		t.Fatalf("Unexpected error when generating config: %s", err)
+	}
+
+	// Confirm request/response
+	certs := make([]*x509.Certificate, 0)
+	certs = append(certs, config.Certificates[0].Leaf)
+
+	// Test all the routes
+	routes := []struct {
+		method   string
+		endpoint string
+		status   int
+		handler  http.HandlerFunc
+	}{
+		{"GET", "/v1/auth/perms/foo", 401, s.HandlePerm},
+		{"GET", "/v1/auth/idents/foo", 401, s.HandlePerm},
+		{"GET", "/v1/auth/perms", 401, s.HandlePerms},
+		{"GET", "/v1/auth/perms/", 401, s.HandlePerm},
+		{"GET", "/v1/auth/snapshot", 401, s.HandleSnapshot},
+		{"GET", "/v1/auth/snapshot/", 401, s.HandleSnapshot},
+		{"GET", "/v1/auth/publish/", 401, s.HandlePublish},
+		{"GET", "/v1/auth/publish", 401, s.HandlePublish},
+	}
+	for _, route := range routes {
+		t.Run(route.method+route.endpoint, func(t *testing.T) {
+			req, err := http.NewRequest(route.method, route.endpoint, nil)
+			if err != nil {
+				t.Error(err)
+			}
+			req.TLS = &tls.ConnectionState{
+				PeerCertificates: certs,
+			}
+			rr := httptest.NewRecorder()
+			handler := http.HandlerFunc(route.handler)
+			handler.ServeHTTP(rr, req)
+
+			expected := route.status
+			if got := rr.Code; got != expected {
+				t.Errorf("Expected %v, got: %v", expected, got)
+			}
+		})
+	}
+}
+
+func TestVerifyAuthWorks(t *testing.T) {
+	s, err := newTestServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(s.opts.DataDir)
+
+	s.opts.CertFile = "./../../test/certs/acme-client.pem"
+	s.opts.KeyFile = "./../../test/certs/acme-client-key.pem"
+	s.opts.CaFile = "./../../test/certs/ca.pem"
+	s.opts.HTTPUsers = []string{"CN=acme.example.com,OU=ACME"}
+	config, err := s.generateTLSConfig()
+	if err != nil {
+		t.Fatalf("Unexpected error when generating config: %s", err)
+	}
+
+	// Confirm request/response
+	certs := make([]*x509.Certificate, 0)
+	certs = append(certs, config.Certificates[0].Leaf)
+
+	// Test all the routes
+	routes := []struct {
+		method   string
+		endpoint string
+		status   int
+		handler  http.HandlerFunc
+	}{
+		{"GET", "/v1/auth/perms/foo", 500, s.HandlePerm},
+		{"GET", "/v1/auth/idents/foo", 500, s.HandlePerm},
+		{"GET", "/v1/auth/perms", 200, s.HandlePerms},
+		{"GET", "/v1/auth/perms/", 500, s.HandlePerm},
+		{"GET", "/v1/auth/snapshot", 404, s.HandleSnapshot},
+		{"GET", "/v1/auth/snapshot/", 404, s.HandleSnapshot},
+		{"GET", "/v1/auth/publish/", 405, s.HandlePublish},
+		{"GET", "/v1/auth/publish", 405, s.HandlePublish},
+	}
+	for _, route := range routes {
+		t.Run(route.method+route.endpoint, func(t *testing.T) {
+			req, err := http.NewRequest(route.method, route.endpoint, nil)
+			if err != nil {
+				t.Error(err)
+			}
+			req.TLS = &tls.ConnectionState{
+				PeerCertificates: certs,
+			}
+			rr := httptest.NewRecorder()
+			handler := http.HandlerFunc(route.handler)
+			handler.ServeHTTP(rr, req)
+
+			expected := route.status
+			if got := rr.Code; got != expected {
+				t.Errorf("Expected %v, got: %v", expected, got)
+			}
+			// fmt.Println(rr.Body.String())
+		})
 	}
 }
