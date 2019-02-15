@@ -75,12 +75,17 @@ func (s *Server) Run(ctx context.Context) error {
 	case s.opts.LogFile != "":
 		lj := &lumberjack.Logger{
 			Filename: s.opts.LogFile,
-			// TODO: Parameterize rest of options.
-			// MaxSize:    500, // megabytes
-			// MaxBackups: 3,
-			// MaxAge:     28,   //days
-			// Compress:   true, // disabled by default
 		}
+		if s.opts.LogMaxSize > 0 {
+			lj.MaxSize = int(s.opts.LogMaxSize)
+		}
+		if s.opts.LogMaxBackups > 0 {
+			lj.MaxBackups = int(s.opts.LogMaxBackups)
+		}
+		if s.opts.LogMaxAge > 0 {
+			lj.MaxAge = int(s.opts.LogMaxAge)
+		}
+
 		l.logger.SetOutput(lj)
 		s.quit = func() {
 			lj.Close()

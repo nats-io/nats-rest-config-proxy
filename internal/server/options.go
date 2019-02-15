@@ -76,6 +76,16 @@ type Options struct {
 	// NoColors disables the colors in the logger.
 	NoColors bool
 
+	// LogMaxSize is the maximum size in megabytes of the log file
+	// before it ges rotated.
+	LogMaxSize int64
+
+	// LogMaxAge is the maximum number of days to retain old log files.
+	LogMaxAge int64
+
+	// LogMaxBackups is the maximum number of old log files to retain.
+	LogMaxBackups int64
+
 	// PublishScript is a path to a script for publishing
 	// the configuration.
 	PublishScript string
@@ -279,6 +289,24 @@ func (opts *Options) ProcessConfigFile(configFile string) error {
 						return fmt.Errorf("invalid config option: %+v", v)
 					}
 					opts.LogFile = o
+				case "max_size":
+					o, ok := v.(int64)
+					if !ok {
+						return fmt.Errorf("invalid config option: %+v", v)
+					}
+					opts.LogMaxSize = o
+				case "max_age":
+					o, ok := v.(int64)
+					if !ok {
+						return fmt.Errorf("invalid config option: %+v", v)
+					}
+					opts.LogMaxAge = o
+				case "max_backups":
+					o, ok := v.(int64)
+					if !ok {
+						return fmt.Errorf("invalid config option: %+v", v)
+					}
+					opts.LogMaxBackups = o
 				}
 			}
 		}

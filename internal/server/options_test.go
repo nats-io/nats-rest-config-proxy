@@ -248,6 +248,96 @@ func TestOptions(t *testing.T) {
 			},
 			nil,
 		},
+		{
+			"logging file rotation",
+			[]string{},
+			`logging: {
+                          file = false,
+                        }`,
+			&Options{},
+			errors.New(`invalid config option: false`),
+		},
+		{
+			"logging file rotation",
+			[]string{},
+			`logging: {
+                          file = "/tmp/server.log",
+                          max_age = 20
+                        }`,
+			&Options{
+				Host:      "0.0.0.0",
+				Port:      4567,
+				DataDir:   "./data",
+				LogFile:   "/tmp/server.log",
+				NoColors:  true,
+				LogMaxAge: 20,
+			},
+			nil,
+		},
+		{
+			"logging file rotation",
+			[]string{},
+			`logging: {
+                          file = "/tmp/server.log",
+                          max_backups = 20
+                        }`,
+			&Options{
+				Host:          "0.0.0.0",
+				Port:          4567,
+				DataDir:       "./data",
+				LogFile:       "/tmp/server.log",
+				NoColors:      true,
+				LogMaxBackups: 20,
+			},
+			nil,
+		},
+		{
+			"logging file rotation",
+			[]string{},
+			`logging: {
+                          file = "/tmp/server.log",
+                          max_backups = 20
+                        }`,
+			&Options{
+				Host:          "0.0.0.0",
+				Port:          4567,
+				DataDir:       "./data",
+				LogFile:       "/tmp/server.log",
+				NoColors:      true,
+				LogMaxBackups: 20,
+			},
+			nil,
+		},
+		{
+			"logging file rotation",
+			[]string{},
+			`logging: {
+                          file = "foo.log",
+                          max_backups: false
+                        }`,
+			&Options{},
+			errors.New(`invalid config option: false`),
+		},
+		{
+			"logging file rotation",
+			[]string{},
+			`logging: {
+                          file = "foo.log",
+                          max_size: false
+                        }`,
+			&Options{},
+			errors.New(`invalid config option: false`),
+		},
+		{
+			"logging file rotation",
+			[]string{},
+			`logging: {
+                          file = "foo.log",
+                          max_age = false
+                        }`,
+			&Options{},
+			errors.New(`invalid config option: false`),
+		},
 	}
 
 	for _, test := range tests {
