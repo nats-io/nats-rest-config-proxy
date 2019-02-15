@@ -203,6 +203,12 @@ func (opts *Options) ProcessConfigFile(configFile string) error {
 			} else {
 				return fmt.Errorf("invalid data dir: %+v", v)
 			}
+		case "publish_script", "script":
+			if o, ok := v.(string); ok {
+				opts.PublishScript = o
+			} else {
+				return fmt.Errorf("invalid script file: %+v", v)
+			}
 		case "tls":
 			m, ok := v.(map[string]interface{})
 			if !ok {
