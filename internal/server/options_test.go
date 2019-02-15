@@ -338,6 +338,61 @@ func TestOptions(t *testing.T) {
 			&Options{},
 			errors.New(`invalid config option: false`),
 		},
+		{
+			"script in config file",
+			[]string{},
+			`publish_script: "foo.sh"`,
+			&Options{
+				Host:          "0.0.0.0",
+				Port:          4567,
+				DataDir:       "./data",
+				PublishScript: "foo.sh",
+			},
+			nil,
+		},
+		{
+			"script in config file",
+			[]string{},
+			`script: "foo.sh"`,
+			&Options{
+				Host:          "0.0.0.0",
+				Port:          4567,
+				DataDir:       "./data",
+				PublishScript: "foo.sh",
+			},
+			nil,
+		},
+		{
+			"script in config file",
+			[]string{},
+			`script: false`,
+			&Options{},
+			errors.New(`invalid script file: false`),
+		},
+		{
+			"script flag",
+			[]string{"-f", "foo.sh"},
+			"",
+			&Options{
+				Host:          "0.0.0.0",
+				Port:          4567,
+				DataDir:       "./data",
+				PublishScript: "foo.sh",
+			},
+			nil,
+		},
+		{
+			"script flag",
+			[]string{"--publish-script", "foo.sh"},
+			"",
+			&Options{
+				Host:          "0.0.0.0",
+				Port:          4567,
+				DataDir:       "./data",
+				PublishScript: "foo.sh",
+			},
+			nil,
+		},
 	}
 
 	for _, test := range tests {
