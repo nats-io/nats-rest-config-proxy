@@ -32,6 +32,7 @@ Server Options:
     -f, --publish-script <file>   Path to an optional script to execute on publish
 
 Logging Options:
+    -l, --log <file>              File to redirect log output
     -D, --debug                   Enable debugging output
     -V, --trace                   Enable trace logging
     -DV                           Debug and trace
@@ -118,12 +119,6 @@ func ConfigureOptions(args []string) (*Options, error) {
 	fs.BoolVar(&showVersion, "v", false, "Print version information.")
 	fs.StringVar(&configFile, "c", "", "Configuration file.")
 	fs.StringVar(&configFile, "config", "", "Configuration file.")
-	fs.BoolVar(&opts.Debug, "D", false, "Enable Debug logging.")
-	fs.BoolVar(&opts.Debug, "debug", false, "Enable Debug logging.")
-	fs.BoolVar(&opts.Trace, "V", false, "Enable Trace logging.")
-	fs.BoolVar(&opts.Trace, "trace", false, "Enable Trace logging.")
-	fs.BoolVar(&dv, "DV", false, "Enable Debug and Trace logging.")
-
 	fs.StringVar(&opts.Host, "addr", "0.0.0.0", "Network host to listen on.")
 	fs.StringVar(&opts.Host, "a", "0.0.0.0", "Network host to listen on.")
 	fs.IntVar(&opts.Port, "port", 4567, "Port to listen on.")
@@ -133,6 +128,13 @@ func ConfigureOptions(args []string) (*Options, error) {
 	fs.StringVar(&opts.DataDir, "d", "./data", "Directory for storing data.")
 	fs.StringVar(&opts.PublishScript, "f", "", "Path to an optional script to execute on publish")
 	fs.StringVar(&opts.PublishScript, "publish-script", "", "Path to an optional script to execute on publish")
+	fs.BoolVar(&opts.Debug, "D", false, "Enable Debug logging.")
+	fs.BoolVar(&opts.Debug, "debug", false, "Enable Debug logging.")
+	fs.BoolVar(&opts.Trace, "V", false, "Enable Trace logging.")
+	fs.BoolVar(&opts.Trace, "trace", false, "Enable Trace logging.")
+	fs.BoolVar(&dv, "DV", false, "Enable Debug and Trace logging.")
+	fs.StringVar(&opts.LogFile, "l", "", "File to redirect log output.")
+	fs.StringVar(&opts.LogFile, "log", "", "File to redirect log output.")
 	fs.StringVar(&opts.CertFile, "cert", "", "Server certificate file (Enables HTTPS).")
 	fs.StringVar(&opts.KeyFile, "key", "", "Private key for server certificate (used with HTTPS).")
 	fs.StringVar(&opts.CaFile, "cacert", "", "Client certificate CA for verification (used with HTTPS).")

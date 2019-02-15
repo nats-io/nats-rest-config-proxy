@@ -234,6 +234,18 @@ func TestOptions(t *testing.T) {
 			},
 			nil,
 		},
+		{
+			"logfile",
+			[]string{"-l", "foo.log"},
+			"",
+			&Options{
+				Host:    "0.0.0.0",
+				Port:    4567,
+				DataDir: "./data",
+				LogFile: "foo.log",
+			},
+			nil,
+		},
 	}
 
 	for _, test := range tests {
