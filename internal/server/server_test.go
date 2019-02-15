@@ -250,3 +250,34 @@ func TestRunServerFileLogger(t *testing.T) {
 		t.Errorf("Unexpected output in log file: %v", got)
 	}
 }
+
+func TestRunServerPortAlreadyBound(t *testing.T) {
+	s, err := newTestServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(s.opts.DataDir)
+
+	s2, err := newTestServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	s2.opts.Port = s.opts.Port
+	defer os.RemoveAll(s2.opts.DataDir)
+
+	ctx, done := context.WithCancel(context.Background())
+	time.AfterFunc(200*time.Millisecond, func() {
+		done()
+	})
+
+	go s.Run(ctx)
+	time.Sleep(50 * time.Millisecond)
+
+	err = s2.Run(ctx)
+	if err == nil {
+		t.Fatal("Expected error running server")
+	}
+	if !strings.Contains(err.Error(), "address already in use") {
+		t.Fatalf("Unexpected error running server: %v", err)
+	}
+}
