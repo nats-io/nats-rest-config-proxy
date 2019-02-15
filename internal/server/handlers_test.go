@@ -410,6 +410,14 @@ func TestDeletePermissionsNameMissing(t *testing.T) {
 		t.Fatalf("Expected bad request, got: %v", resp.StatusCode)
 	}
 
+	resp, _, err = curl("DELETE", host+"/v1/auth/perms/not-found", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 404 {
+		t.Fatalf("Expected bad request, got: %v", resp.StatusCode)
+	}
+
 	resp, _, err = curl("DELETE", host+"/v1/auth/perms", []byte(""))
 	if err != nil {
 		t.Fatal(err)
@@ -478,7 +486,7 @@ func TestDeletePermissions(t *testing.T) {
 	host := fmt.Sprintf("http://%s:%d", s.opts.Host, s.opts.Port)
 	createFixtures(t, host)
 
-	resp, _, err := curl("DELETE", host+"/v1/auth/perms/second-user", []byte(""))
+	resp, _, err := curl("DELETE", host+"/v1/auth/perms/normal-user", []byte(""))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -502,37 +510,11 @@ func TestDeletePermissions(t *testing.T) {
   "users": [
     {
       "username": "first-user",
-      "password": "secret",
-      "permissions": {
-        "publish": {
-          "allow": [
-            "foo.*",
-            "bar.>"
-          ]
-        },
-        "subscribe": {
-          "deny": [
-            "quux"
-          ]
-        }
-      }
+      "password": "secret"
     },
     {
       "username": "second-user",
-      "password": "secret",
-      "permissions": {
-        "publish": {
-          "allow": [
-            "foo.*",
-            "bar.>"
-          ]
-        },
-        "subscribe": {
-          "deny": [
-            "quux"
-          ]
-        }
-      }
+      "password": "secret"
     }
   ]
 }
@@ -768,5 +750,250 @@ func TestGetSinglePermission(t *testing.T) {
 	}
 	if !reflect.DeepEqual(expected, permission) {
 		t.Errorf("Expected: %+v\nGot: %+v", expected, permission)
+	}
+}
+
+func TestSnapshotHandler(t *testing.T) {
+	s, err := newTestServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(s.opts.DataDir)
+
+	ctx, done := context.WithTimeout(context.Background(), 2*time.Second)
+	defer done()
+	go s.Run(ctx)
+	defer func() {
+		s.Shutdown(ctx)
+		waitServerIsDone(t, ctx, s)
+	}()
+
+	waitServerIsReady(t, ctx, s)
+
+	host := fmt.Sprintf("http://%s:%d", s.opts.Host, s.opts.Port)
+	createFixtures(t, host)
+
+	// Publish the snapshot
+	resp, _, err := curl("POST", host+"/v1/auth/snapshot", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	config, err := s.getConfigSnapshot("latest")
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := `{
+  "users": [
+    {
+      "username": "first-user",
+      "password": "secret",
+      "permissions": {
+        "publish": {
+          "allow": [
+            "foo.*",
+            "bar.>"
+          ]
+        },
+        "subscribe": {
+          "deny": [
+            "quux"
+          ]
+        }
+      }
+    },
+    {
+      "username": "second-user",
+      "password": "secret",
+      "permissions": {
+        "publish": {
+          "allow": [
+            "foo.*",
+            "bar.>"
+          ]
+        },
+        "subscribe": {
+          "deny": [
+            "quux"
+          ]
+        }
+      }
+    }
+  ]
+}
+`
+	got := string(config)
+	if expected != got {
+		t.Fatalf("Expected: %s\n, got: %s", expected, got)
+	}
+}
+
+func TestSnapshotWithNameHandler(t *testing.T) {
+	s, err := newTestServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(s.opts.DataDir)
+
+	ctx, done := context.WithTimeout(context.Background(), 2*time.Second)
+	defer done()
+	go s.Run(ctx)
+	defer func() {
+		s.Shutdown(ctx)
+		waitServerIsDone(t, ctx, s)
+	}()
+
+	waitServerIsReady(t, ctx, s)
+
+	host := fmt.Sprintf("http://%s:%d", s.opts.Host, s.opts.Port)
+	createFixtures(t, host)
+
+	// Publish the snapshot
+	resp, _, err := curl("POST", host+"/v1/auth/snapshot?name=sample", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	config, err := s.getConfigSnapshot("sample")
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := `{
+  "users": [
+    {
+      "username": "first-user",
+      "password": "secret",
+      "permissions": {
+        "publish": {
+          "allow": [
+            "foo.*",
+            "bar.>"
+          ]
+        },
+        "subscribe": {
+          "deny": [
+            "quux"
+          ]
+        }
+      }
+    },
+    {
+      "username": "second-user",
+      "password": "secret",
+      "permissions": {
+        "publish": {
+          "allow": [
+            "foo.*",
+            "bar.>"
+          ]
+        },
+        "subscribe": {
+          "deny": [
+            "quux"
+          ]
+        }
+      }
+    }
+  ]
+}
+`
+	got := string(config)
+	if expected != got {
+		t.Fatalf("Expected: %s\n, got: %s", expected, got)
+	}
+}
+
+func TestSnapshotWithNameDelete(t *testing.T) {
+	s, err := newTestServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(s.opts.DataDir)
+
+	ctx, done := context.WithTimeout(context.Background(), 2*time.Second)
+	defer done()
+	go s.Run(ctx)
+	defer func() {
+		s.Shutdown(ctx)
+		waitServerIsDone(t, ctx, s)
+	}()
+
+	waitServerIsReady(t, ctx, s)
+
+	host := fmt.Sprintf("http://%s:%d", s.opts.Host, s.opts.Port)
+	createFixtures(t, host)
+
+	// Publish the snapshot
+	resp, _, err := curl("POST", host+"/v1/auth/snapshot?name=foo", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Delete the snapshot
+	resp, _, err = curl("DELETE", host+"/v1/auth/snapshot?name=foo", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Delete non existant snapshot
+	resp2, _, err := curl("DELETE", host+"/v1/auth/snapshot?name=foo", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp2.StatusCode != 404 {
+		t.Fatalf("Expected 404, got: %v", resp.StatusCode)
+	}
+}
+
+func TestDeleteUser(t *testing.T) {
+	s, err := newTestServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(s.opts.DataDir)
+
+	ctx, done := context.WithTimeout(context.Background(), 2*time.Second)
+	defer done()
+	go s.Run(ctx)
+	defer s.Shutdown(ctx)
+	waitServerIsReady(t, ctx, s)
+
+	host := fmt.Sprintf("http://%s:%d", s.opts.Host, s.opts.Port)
+	createFixtures(t, host)
+
+	resp, _, err := curl("DELETE", host+"/v1/auth/idents/first-user", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	resp, _, err = curl("GET", host+"/v1/auth/idents/first-user", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 404 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	resp, _, err = curl("DELETE", host+"/v1/auth/idents/first-user", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 404 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
 	}
 }

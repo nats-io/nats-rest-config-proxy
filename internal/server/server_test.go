@@ -114,9 +114,11 @@ func curl(method string, endpoint string, payload []byte) (*http.Response, []byt
 		return nil, nil, err
 	}
 	if len(result.Query()) > 0 {
+		q := req.URL.Query()
 		for k, v := range result.Query() {
-			req.URL.Query().Add(k, string(v[0]))
+			q.Add(k, string(v[0]))
 		}
+		req.URL.RawQuery = q.Encode()
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

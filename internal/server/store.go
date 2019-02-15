@@ -101,12 +101,6 @@ func (s *Server) getUsers() ([]*api.User, error) {
 
 func (s *Server) deletePermissionResource(name string) error {
 	path := filepath.Join(s.resourcesDir(), "permissions", fmt.Sprintf("%s.json", name))
-
-	// If already gone then no need to delete...
-	if _, err := os.Stat(path); err != nil && os.IsNotExist(err) {
-		return nil
-	}
-
 	return os.Remove(path)
 }
 
@@ -127,12 +121,6 @@ func (s *Server) getUserResource(name string) (*api.User, error) {
 
 func (s *Server) deleteUserResource(name string) error {
 	path := filepath.Join(s.resourcesDir(), "users", fmt.Sprintf("%s.json", name))
-
-	// If already gone then no need to delete...
-	if _, err := os.Stat(path); err != nil && os.IsNotExist(err) {
-		return nil
-	}
-
 	return os.Remove(path)
 }
 
@@ -144,12 +132,6 @@ func (s *Server) getConfigSnapshot(name string) ([]byte, error) {
 
 func (s *Server) deleteConfigSnapshot(name string) error {
 	path := filepath.Join(s.snapshotsDir(), fmt.Sprintf("%s.json", name))
-
-	// If already gone then no need to delete...
-	if _, err := os.Stat(path); err != nil && os.IsNotExist(err) {
-		return nil
-	}
-
 	return os.Remove(path)
 }
 
@@ -176,8 +158,7 @@ func (s *Server) buildConfigSnapshot(name string) error {
 
 		p, ok := permissions[u.Permissions]
 		if !ok {
-			s.log.Tracef("User %q will use default permissions", u.Username)
-			continue
+			s.log.Warnf("User %q will use default permissions", u.Username)
 		}
 
 		user := &api.ConfigUser{
