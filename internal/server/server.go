@@ -68,7 +68,7 @@ func (s *Server) Run(ctx context.Context) error {
 	ctx, done := context.WithCancel(ctx)
 
 	// Logging configuration.
-	l := NewDefaultLogger()
+	l := NewLogger(s.opts)
 	l.debug = s.opts.Debug
 	l.trace = s.opts.Trace
 	switch {

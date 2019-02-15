@@ -50,7 +50,7 @@ func newTestServer() (*Server, error) {
 	s := &Server{opts: opts}
 
 	// Setup test server for handler without binding port
-	l := NewDefaultLogger()
+	l := NewLogger(s.opts)
 	l.logger.SetOutput(ioutil.Discard)
 	s.log = l
 	err = s.setupStoreDirectories()
