@@ -21,7 +21,9 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -216,5 +218,35 @@ func TestServerHupSignalHandler(t *testing.T) {
 		t.Fatal("Time out waiting for server to exit")
 	case <-called:
 		done()
+	}
+}
+
+func TestRunServerFileLogger(t *testing.T) {
+	s, err := newTestServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.opts.LogFile = filepath.Join(s.opts.DataDir, "server.log")
+	s.opts.NoColors = true
+	s.opts.NoSignals = false
+	defer os.RemoveAll(s.opts.DataDir)
+
+	ctx, done := context.WithCancel(context.Background())
+	time.AfterFunc(200*time.Millisecond, func() {
+		done()
+	})
+
+	err = s.Run(ctx)
+	if err != nil && err != context.Canceled {
+		t.Fatalf("Unexpected error running server: %s", err)
+	}
+
+	contents, err := ioutil.ReadFile(s.opts.LogFile)
+	if err != nil {
+		t.Error(err)
+	}
+	got := string(contents)
+	if !strings.Contains(got, `Starting nats-rest-config-proxy`) {
+		t.Errorf("Unexpected output in log file: %v", got)
 	}
 }
