@@ -1,3 +1,5 @@
+[![License][License-Image]][License-Url][![Build][Build-Status-Image]][Build-Status-Url] [![Coverage][Coverage-Image]][Coverage-Url]
+
 # NATS ACL Configuration Proxy
 
 ### Getting started
@@ -47,3 +49,11 @@ $ go test ./... -v
 ### License
 
 Unless otherwise noted, the NATS source files are distributed under the Apache Version 2.0 license found in the LICENSE file.
+
+
+[License-Url]: https://www.apache.org/licenses/LICENSE-2.0
+[License-Image]: https://img.shields.io/badge/License-Apache2-blue.svg
+[Build-Status-Url]: http://travis-ci.org/nats-io/nats-rest-config-proxy
+[Build-Status-Image]: https://travis-ci.org/nats-io/nats-rest-config-proxy.svg?branch=master
+[Coverage-Url]: https://coveralls.io/r/nats-io/nats-rest-config-proxy?branch=master
+[Coverage-image]: https://coveralls.io/repos/github/nats-io/nats-rest-config-proxy/badge.svg?branch=master
