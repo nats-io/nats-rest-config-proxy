@@ -25,6 +25,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -419,14 +420,6 @@ func TestDeletePermissionsNameMissing(t *testing.T) {
 	if resp.StatusCode != 404 {
 		t.Fatalf("Expected bad request, got: %v", resp.StatusCode)
 	}
-
-	resp, _, err = curl("DELETE", host+"/v1/auth/perms", []byte(""))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resp.StatusCode != 405 {
-		t.Fatalf("Expected bad request, got: %v", resp.StatusCode)
-	}
 }
 
 func TestDeleteUsersNameMissing(t *testing.T) {
@@ -455,14 +448,6 @@ func TestDeleteUsersNameMissing(t *testing.T) {
 		t.Fatal(err)
 	}
 	if resp.StatusCode != 400 {
-		t.Fatalf("Expected bad request, got: %v", resp.StatusCode)
-	}
-
-	resp, _, err = curl("DELETE", host+"/v1/auth/idents", []byte(""))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resp.StatusCode != 405 {
 		t.Fatalf("Expected bad request, got: %v", resp.StatusCode)
 	}
 }
@@ -524,6 +509,135 @@ func TestDeletePermissions(t *testing.T) {
 	got := string(config)
 	if expected != got {
 		t.Fatalf("Expected: %s\n, got: %s", expected, got)
+	}
+}
+
+func TestDeleteAllUsers(t *testing.T) {
+	s, err := newTestServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer os.RemoveAll(s.opts.DataDir)
+
+	ctx, done := context.WithTimeout(context.Background(), 2*time.Second)
+	defer done()
+	go s.Run(ctx)
+	defer func() {
+		s.Shutdown(ctx)
+		waitServerIsDone(t, ctx, s)
+	}()
+
+	waitServerIsReady(t, ctx, s)
+
+	host := fmt.Sprintf("http://%s:%d", s.opts.Host, s.opts.Port)
+	createFixtures(t, host)
+
+	resp, _, err := curl("DELETE", host+"/v1/auth/idents", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	resp, _, err = curl("POST", host+"/v1/auth/publish", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	config, err := s.getCurrentConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := `{
+  "users": []
+}
+`
+	got := string(config)
+	if expected != got {
+		t.Fatalf("Expected: %s\n, got: %s", expected, got)
+	}
+}
+
+func TestDeleteAllPermissions(t *testing.T) {
+	s, err := newTestServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer os.RemoveAll(s.opts.DataDir)
+
+	ctx, done := context.WithTimeout(context.Background(), 2*time.Second)
+	defer done()
+	go s.Run(ctx)
+	defer func() {
+		s.Shutdown(ctx)
+		waitServerIsDone(t, ctx, s)
+	}()
+
+	waitServerIsReady(t, ctx, s)
+
+	host := fmt.Sprintf("http://%s:%d", s.opts.Host, s.opts.Port)
+	createFixtures(t, host)
+
+	resp, body, err := curl("DELETE", host+"/v1/auth/perms", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 409 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+	got := string(body)
+	expected := `User "first-user" is using permission "normal-user"`
+	if !strings.Contains(got, expected) {
+		t.Errorf("Expected: %v, got: %v", expected, got)
+	}
+
+	resp, _, err = curl("DELETE", host+"/v1/auth/idents/first-user", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	resp, _, err = curl("DELETE", host+"/v1/auth/idents/second-user", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Should be able to delete all permissions now
+	resp, _, err = curl("DELETE", host+"/v1/auth/perms", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	resp, data, err := curl("GET", host+"/v1/auth/perms", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	var p map[string]*api.Permissions
+	err = json.Unmarshal(data, &p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := len(p)
+	if found > 0 {
+		t.Fatalf("Expected no permissions, found: %v", found)
 	}
 }
 

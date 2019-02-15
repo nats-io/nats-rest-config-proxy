@@ -99,6 +99,53 @@ func (s *Server) getUsers() ([]*api.User, error) {
 	return users, nil
 }
 
+func (s *Server) deleteAllUsers() error {
+	files, err := ioutil.ReadDir(filepath.Join(s.resourcesDir(), "users"))
+	if err != nil {
+		return err
+	}
+	for _, f := range files {
+		path := filepath.Join(s.resourcesDir(), "users", f.Name())
+		err := os.Remove(path)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s *Server) deleteAllPermissions() (bool, error) {
+	var conflict bool
+	files, err := ioutil.ReadDir(filepath.Join(s.resourcesDir(), "permissions"))
+	if err != nil {
+		return conflict, err
+	}
+	users, err := s.getUsers()
+	if err != nil {
+		return conflict, err
+	}
+	for _, f := range files {
+		basename := f.Name()
+		name := strings.TrimSuffix(basename, filepath.Ext(basename))
+
+		// Confirm that no user is using this resource.
+		for _, u := range users {
+			if u.Permissions == name {
+				return true, fmt.Errorf("User %q is using permission %q", u.Username, name)
+			}
+		}
+
+		// Proceed to remove.
+		path := filepath.Join(s.resourcesDir(), "permissions", f.Name())
+		err := os.Remove(path)
+		if err != nil {
+			return conflict, err
+		}
+	}
+	return conflict, nil
+}
+
 func (s *Server) deletePermissionResource(name string) error {
 	path := filepath.Join(s.resourcesDir(), "permissions", fmt.Sprintf("%s.json", name))
 	return os.Remove(path)
