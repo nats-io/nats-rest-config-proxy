@@ -68,23 +68,31 @@ func (s *Server) Run(ctx context.Context) error {
 	ctx, done := context.WithCancel(ctx)
 
 	// Logging configuration.
-	l := NewDefaultLogger()
+	l := NewLogger(s.opts)
 	l.debug = s.opts.Debug
 	l.trace = s.opts.Trace
 	switch {
 	case s.opts.LogFile != "":
 		lj := &lumberjack.Logger{
 			Filename: s.opts.LogFile,
-			// TODO: Parameterize rest of options.
-			// MaxSize:    500, // megabytes
-			// MaxBackups: 3,
-			// MaxAge:     28,   //days
-			// Compress:   true, // disabled by default
 		}
+		if s.opts.LogMaxSize > 0 {
+			lj.MaxSize = int(s.opts.LogMaxSize)
+		}
+		if s.opts.LogMaxBackups > 0 {
+			lj.MaxBackups = int(s.opts.LogMaxBackups)
+		}
+		if s.opts.LogMaxAge > 0 {
+			lj.MaxAge = int(s.opts.LogMaxAge)
+		}
+
 		l.logger.SetOutput(lj)
 		s.quit = func() {
 			lj.Close()
 			done()
+		}
+		l.rotate = func() error {
+			return lj.Rotate()
 		}
 	case s.opts.NoLog:
 		l.logger.SetOutput(ioutil.Discard)
@@ -188,7 +196,7 @@ func (s *Server) Shutdown(ctx context.Context) error {
 // SetupSignalHandler enables handling process signals.
 func (s *Server) SetupSignalHandler(ctx context.Context) {
 	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 
 	for sig := range sigCh {
 		s.log.Debugf("Trapped '%v' signal\n", sig)
@@ -209,6 +217,9 @@ func (s *Server) SetupSignalHandler(ctx context.Context) {
 			// Gracefully shutdown the server.
 			s.Shutdown(ctx)
 			return
+		case syscall.SIGHUP:
+			s.log.Infof("Rotating log file...")
+			s.log.rotate()
 		}
 	}
 }

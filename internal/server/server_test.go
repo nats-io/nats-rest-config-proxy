@@ -21,7 +21,9 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -50,7 +52,7 @@ func newTestServer() (*Server, error) {
 	s := &Server{opts: opts}
 
 	// Setup test server for handler without binding port
-	l := NewDefaultLogger()
+	l := NewLogger(s.opts)
 	l.logger.SetOutput(ioutil.Discard)
 	s.log = l
 	err = s.setupStoreDirectories()
@@ -166,7 +168,7 @@ func TestNewServer(t *testing.T) {
 	}
 }
 
-func TestServerSignalHandler(t *testing.T) {
+func TestServerTermSignalHandler(t *testing.T) {
 	s, err := newTestServer()
 	if err != nil {
 		t.Fatal(err)
@@ -189,5 +191,93 @@ func TestServerSignalHandler(t *testing.T) {
 		t.Fatal("Time out waiting for server to exit")
 	case <-called:
 		done()
+	}
+}
+
+func TestServerHupSignalHandler(t *testing.T) {
+	s, err := newTestServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(s.opts.DataDir)
+	s.opts.NoSignals = false
+
+	called := make(chan struct{}, 0)
+	s.log.rotate = func() error {
+		called <- struct{}{}
+		return nil
+	}
+	ctx, done := context.WithCancel(context.Background())
+	go s.SetupSignalHandler(ctx)
+
+	time.Sleep(100 * time.Millisecond)
+	syscall.Kill(syscall.Getpid(), syscall.SIGHUP)
+
+	select {
+	case <-time.After(1 * time.Second):
+		t.Fatal("Time out waiting for server to exit")
+	case <-called:
+		done()
+	}
+}
+
+func TestRunServerFileLogger(t *testing.T) {
+	s, err := newTestServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.opts.LogFile = filepath.Join(s.opts.DataDir, "server.log")
+	s.opts.NoColors = true
+	s.opts.NoSignals = false
+	defer os.RemoveAll(s.opts.DataDir)
+
+	ctx, done := context.WithCancel(context.Background())
+	time.AfterFunc(200*time.Millisecond, func() {
+		done()
+	})
+
+	err = s.Run(ctx)
+	if err != nil && err != context.Canceled {
+		t.Fatalf("Unexpected error running server: %s", err)
+	}
+
+	contents, err := ioutil.ReadFile(s.opts.LogFile)
+	if err != nil {
+		t.Error(err)
+	}
+	got := string(contents)
+	if !strings.Contains(got, `Starting nats-rest-config-proxy`) {
+		t.Errorf("Unexpected output in log file: %v", got)
+	}
+}
+
+func TestRunServerPortAlreadyBound(t *testing.T) {
+	s, err := newTestServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(s.opts.DataDir)
+
+	s2, err := newTestServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	s2.opts.Port = s.opts.Port
+	defer os.RemoveAll(s2.opts.DataDir)
+
+	ctx, done := context.WithCancel(context.Background())
+	time.AfterFunc(200*time.Millisecond, func() {
+		done()
+	})
+
+	go s.Run(ctx)
+	time.Sleep(50 * time.Millisecond)
+
+	err = s2.Run(ctx)
+	if err == nil {
+		t.Fatal("Expected error running server")
+	}
+	if !strings.Contains(err.Error(), "address already in use") {
+		t.Fatalf("Unexpected error running server: %v", err)
 	}
 }

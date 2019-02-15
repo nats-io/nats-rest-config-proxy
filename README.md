@@ -9,27 +9,29 @@ go get -u github.com/nats-io/nats-rest-config-proxy
 ### Usage
 
 ```sh
-$ nats-rest-config-proxy -h
 Usage: nats-rest-config-proxy [options...]
 
-  -D	Enable Debug logging.
-  -V	Enable Trace logging.
-  -a string
-    	Network host to listen on. (default "0.0.0.0")
-  -c string
-    	Configuration file.
-  -d string
-    	Directory for storing data. (default "./data")
-  -dir string
-    	Directory for storing data. (default "./data")
-  -f string
-    	Path to an optional script to execute on publish
-  -h	Show this message.
-  -p int
-    	Port to listen on. (default 4567)
-  -publish-script string
-    	Path to an optional script to execute on publish
-  -v	Print version information.
+Server Options:
+    -a, --addr <host>             Bind to host address (default: 0.0.0.0)
+    -p, --port <port>             Use port for clients (default: 4567)
+    -d, --dir <directory>         Directory for storing data
+    -c, --config <file>           Configuration file
+    -f, --publish-script <file>   Path to an optional script to execute on publish
+
+Logging Options:
+    -l, --log <file>              File to redirect log output
+    -D, --debug                   Enable debugging output
+    -V, --trace                   Enable trace logging
+    -DV                           Debug and trace
+
+TLS Options:
+    --cert <file>                 Server certificate file
+    --key <file>                  Private key for server certificate
+    --cacert <file>               Client certificate CA for verification
+
+Common Options:
+    -h, --help                    Show this message
+    -v, --version                 Show version
 ```
 
 ### Developing

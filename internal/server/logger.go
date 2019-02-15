@@ -33,19 +33,30 @@ type logger struct {
 	fatalLabel string
 	debugLabel string
 	traceLabel string
+	rotate     func() error
 }
 
-// NewDefaultLogger returns a default logger.
-func NewDefaultLogger() *logger {
+// NewLogger returns a logger.
+func NewLogger(opts *Options) *logger {
 	prefix := fmt.Sprintf("[%d] ", os.Getpid())
 	flags := log.LstdFlags | log.Lmicroseconds
 	l := &logger{logger: log.New(os.Stderr, prefix, flags)}
-	colorFormat := "[\x1b[%sm%s\x1b[0m] "
-	l.debugLabel = fmt.Sprintf(colorFormat, "36", "DBG")
-	l.traceLabel = fmt.Sprintf(colorFormat, "33", "TRC")
-	l.infoLabel = fmt.Sprintf(colorFormat, "32", "INF")
-	l.warnLabel = fmt.Sprintf(colorFormat, "0;93", "WRN")
-	l.errorLabel = fmt.Sprintf(colorFormat, "31", "ERR")
+
+	if opts.NoColors {
+		l.debugLabel = "[DBG] "
+		l.traceLabel = "[TRC] "
+		l.infoLabel = "[INF] "
+		l.warnLabel = "[WRN] "
+		l.errorLabel = "[ERR] "
+	} else {
+		colorFormat := "[\x1b[%sm%s\x1b[0m] "
+		l.debugLabel = fmt.Sprintf(colorFormat, "36", "DBG")
+		l.traceLabel = fmt.Sprintf(colorFormat, "33", "TRC")
+		l.infoLabel = fmt.Sprintf(colorFormat, "32", "INF")
+		l.warnLabel = fmt.Sprintf(colorFormat, "0;93", "WRN")
+		l.errorLabel = fmt.Sprintf(colorFormat, "31", "ERR")
+	}
+
 	return l
 }
 

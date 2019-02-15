@@ -23,6 +23,30 @@ import (
 	"github.com/nats-io/gnatsd/conf"
 )
 
+var usageStr = `
+Server Options:
+    -a, --addr <host>             Bind to host address (default: 0.0.0.0)
+    -p, --port <port>             Use port for clients (default: 4567)
+    -d, --dir <directory>         Directory for storing data
+    -c, --config <file>           Configuration file
+    -f, --publish-script <file>   Path to an optional script to execute on publish
+
+Logging Options:
+    -l, --log <file>              File to redirect log output
+    -D, --debug                   Enable debugging output
+    -V, --trace                   Enable trace logging
+    -DV                           Debug and trace
+
+TLS Options:
+    --cert <file>                 Server certificate file
+    --key <file>                  Private key for server certificate
+    --cacert <file>               Client certificate CA for verification
+
+Common Options:
+    -h, --help                    Show this message
+    -v, --version                 Show version
+`
+
 // Options for the server.
 type Options struct {
 	// NoSignals marks whether to enable the signal handler.
@@ -49,6 +73,19 @@ type Options struct {
 	// NoLog discards the output of the logger.
 	NoLog bool
 
+	// NoColors disables the colors in the logger.
+	NoColors bool
+
+	// LogMaxSize is the maximum size in megabytes of the log file
+	// before it ges rotated.
+	LogMaxSize int64
+
+	// LogMaxAge is the maximum number of days to retain old log files.
+	LogMaxAge int64
+
+	// LogMaxBackups is the maximum number of old log files to retain.
+	LogMaxBackups int64
+
 	// PublishScript is a path to a script for publishing
 	// the configuration.
 	PublishScript string
@@ -72,8 +109,8 @@ type Options struct {
 func ConfigureOptions(args []string) (*Options, error) {
 	fs := flag.NewFlagSet(AppName, flag.ExitOnError)
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: %s [options...]\n\n", AppName)
-		fs.PrintDefaults()
+		fmt.Fprintf(os.Stderr, "Usage: %s [options...]\n", AppName)
+		fmt.Fprintf(os.Stderr, usageStr)
 		fmt.Fprintf(os.Stderr, "\n")
 	}
 
@@ -90,12 +127,6 @@ func ConfigureOptions(args []string) (*Options, error) {
 	fs.BoolVar(&showVersion, "v", false, "Print version information.")
 	fs.StringVar(&configFile, "c", "", "Configuration file.")
 	fs.StringVar(&configFile, "config", "", "Configuration file.")
-	fs.BoolVar(&opts.Debug, "D", false, "Enable Debug logging.")
-	fs.BoolVar(&opts.Debug, "debug", false, "Enable Debug logging.")
-	fs.BoolVar(&opts.Trace, "V", false, "Enable Trace logging.")
-	fs.BoolVar(&opts.Trace, "trace", false, "Enable Trace logging.")
-	fs.BoolVar(&dv, "DV", false, "Enable Debug and Trace logging.")
-
 	fs.StringVar(&opts.Host, "addr", "0.0.0.0", "Network host to listen on.")
 	fs.StringVar(&opts.Host, "a", "0.0.0.0", "Network host to listen on.")
 	fs.IntVar(&opts.Port, "port", 4567, "Port to listen on.")
@@ -105,6 +136,13 @@ func ConfigureOptions(args []string) (*Options, error) {
 	fs.StringVar(&opts.DataDir, "d", "./data", "Directory for storing data.")
 	fs.StringVar(&opts.PublishScript, "f", "", "Path to an optional script to execute on publish")
 	fs.StringVar(&opts.PublishScript, "publish-script", "", "Path to an optional script to execute on publish")
+	fs.BoolVar(&opts.Debug, "D", false, "Enable Debug logging.")
+	fs.BoolVar(&opts.Debug, "debug", false, "Enable Debug logging.")
+	fs.BoolVar(&opts.Trace, "V", false, "Enable Trace logging.")
+	fs.BoolVar(&opts.Trace, "trace", false, "Enable Trace logging.")
+	fs.BoolVar(&dv, "DV", false, "Enable Debug and Trace logging.")
+	fs.StringVar(&opts.LogFile, "l", "", "File to redirect log output.")
+	fs.StringVar(&opts.LogFile, "log", "", "File to redirect log output.")
 	fs.StringVar(&opts.CertFile, "cert", "", "Server certificate file (Enables HTTPS).")
 	fs.StringVar(&opts.KeyFile, "key", "", "Private key for server certificate (used with HTTPS).")
 	fs.StringVar(&opts.CaFile, "cacert", "", "Client certificate CA for verification (used with HTTPS).")
@@ -131,6 +169,10 @@ func ConfigureOptions(args []string) (*Options, error) {
 		opts.Debug = true
 		opts.Trace = true
 	}
+	if opts.LogFile != "" {
+		opts.NoColors = true
+	}
+
 	return opts, nil
 }
 
@@ -247,6 +289,24 @@ func (opts *Options) ProcessConfigFile(configFile string) error {
 						return fmt.Errorf("invalid config option: %+v", v)
 					}
 					opts.LogFile = o
+				case "max_size":
+					o, ok := v.(int64)
+					if !ok {
+						return fmt.Errorf("invalid config option: %+v", v)
+					}
+					opts.LogMaxSize = o
+				case "max_age":
+					o, ok := v.(int64)
+					if !ok {
+						return fmt.Errorf("invalid config option: %+v", v)
+					}
+					opts.LogMaxAge = o
+				case "max_backups":
+					o, ok := v.(int64)
+					if !ok {
+						return fmt.Errorf("invalid config option: %+v", v)
+					}
+					opts.LogMaxBackups = o
 				}
 			}
 		}
