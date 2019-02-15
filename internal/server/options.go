@@ -47,11 +47,6 @@ Common Options:
     -v, --version                 Show version
 `
 
-// usage will print out the flag options for the server.
-func usage() {
-	fmt.Printf("%s\n", usageStr)
-}
-
 // Options for the server.
 type Options struct {
 	// NoSignals marks whether to enable the signal handler.
