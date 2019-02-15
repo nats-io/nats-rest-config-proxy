@@ -91,6 +91,9 @@ func (s *Server) Run(ctx context.Context) error {
 			lj.Close()
 			done()
 		}
+		l.rotate = func() error {
+			return lj.Rotate()
+		}
 	case s.opts.NoLog:
 		l.logger.SetOutput(ioutil.Discard)
 		fallthrough
@@ -193,7 +196,7 @@ func (s *Server) Shutdown(ctx context.Context) error {
 // SetupSignalHandler enables handling process signals.
 func (s *Server) SetupSignalHandler(ctx context.Context) {
 	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 
 	for sig := range sigCh {
 		s.log.Debugf("Trapped '%v' signal\n", sig)
@@ -214,6 +217,9 @@ func (s *Server) SetupSignalHandler(ctx context.Context) {
 			// Gracefully shutdown the server.
 			s.Shutdown(ctx)
 			return
+		case syscall.SIGHUP:
+			s.log.Infof("Rotating log file...")
+			s.log.rotate()
 		}
 	}
 }

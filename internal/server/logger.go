@@ -33,6 +33,7 @@ type logger struct {
 	fatalLabel string
 	debugLabel string
 	traceLabel string
+	rotate     func() error
 }
 
 // NewLogger returns a logger.
