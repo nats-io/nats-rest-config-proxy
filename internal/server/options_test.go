@@ -243,3 +243,66 @@ func TestOptions(t *testing.T) {
 		})
 	}
 }
+
+func TestTLSConfig(t *testing.T) {
+	opts := &Options{
+		CertFile: "./../../test/certs/ca-config.json",
+		KeyFile:  "./../../test/certs/ca-config.json",
+	}
+	expectedErr := `error parsing X509 certificate/key pair (./../../test/certs/ca-config.json, ./../../test/certs/ca-config.json): tls: failed to find any PEM data in certificate input`
+	s := NewServer(opts)
+	_, err := s.generateTLSConfig()
+	if err == nil {
+		t.Errorf("Expected error when generating config")
+	} else if err.Error() != expectedErr {
+		t.Errorf("Unexpected error when generating tls config, got: %+v", err)
+	}
+
+	opts = &Options{
+		CertFile: "./../../test/certs/server.pem",
+		KeyFile:  "./../../test/certs/server-key.pem",
+	}
+	s = NewServer(opts)
+	config, err := s.generateTLSConfig()
+	if err != nil {
+		t.Fatalf("Unexpected error when generating config: %s", err)
+	}
+	if config.ClientCAs != nil {
+		t.Errorf("Expected CA to be not present TLS config")
+	}
+
+	opts = &Options{
+		CertFile: "./../../test/certs/server.pom",
+		KeyFile:  "./../../test/certs/server-key.pem",
+	}
+	s = NewServer(opts)
+	_, err = s.generateTLSConfig()
+	if err == nil {
+		t.Fatalf("Expected error when generating config: %s", err)
+	}
+
+	opts = &Options{
+		CertFile: "./../../test/certs/server.pem",
+		KeyFile:  "./../../test/certs/server-key.pem",
+		CaFile:   "./../../test/certs/ca.pem",
+	}
+	s = NewServer(opts)
+	config, err = s.generateTLSConfig()
+	if err != nil {
+		t.Fatalf("Unexpected error when generating config: %s", err)
+	}
+	if config.ClientCAs == nil {
+		t.Errorf("Expected CA to be present TLS config")
+	}
+
+	opts = &Options{
+		CertFile: "./../../test/certs/server.pem",
+		KeyFile:  "./../../test/certs/server-key.pem",
+		CaFile:   "./../../test/certs/ca.pom",
+	}
+	s = NewServer(opts)
+	config, err = s.generateTLSConfig()
+	if err == nil {
+		t.Fatalf("Expected error when generating config: %s", err)
+	}
+}
