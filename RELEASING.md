@@ -53,6 +53,15 @@ This will trigger Travis-CI to start a build from the creation of the new tags. 
 
 **NOTE:**  If modifying the release process itself, you can test by pushing a tag from a branch.  Use a tag like `v0.0.1-test` to do this.  No need to test on master.
 
+#### Manual Release
+
+You can manually release from your local command line, although this is not recommended.  You'll need to obtain a personal github token with repo access [here](https://github.com/settings/tokens).
+
+```bash
+$ export GITHUB_TOKEN=<your token>
+$ goreleaser release
+```
+
 ### 3) Test the dockerfiles
 
 At this point, you have tagged the repo with your new version and have a draft release.  Test building the docker files and sanity check functionality.  While building, you can ignore messages indicating that `You are in 'detached HEAD' state.` - it is OK.
