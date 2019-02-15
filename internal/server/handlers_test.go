@@ -15,6 +15,8 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -995,5 +997,119 @@ func TestDeleteUser(t *testing.T) {
 	}
 	if resp.StatusCode != 404 {
 		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+}
+
+func TestVerifyAuthFails(t *testing.T) {
+	s, err := newTestServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(s.opts.DataDir)
+
+	s.opts.CertFile = "./../../test/certs/server.pem"
+	s.opts.KeyFile = "./../../test/certs/server-key.pem"
+	s.opts.CaFile = "./../../test/certs/ca.pem"
+	config, err := s.generateTLSConfig()
+	if err != nil {
+		t.Fatalf("Unexpected error when generating config: %s", err)
+	}
+
+	// Confirm request/response
+	certs := make([]*x509.Certificate, 0)
+	certs = append(certs, config.Certificates[0].Leaf)
+
+	// Test all the routes
+	routes := []struct {
+		method   string
+		endpoint string
+		status   int
+		handler  http.HandlerFunc
+	}{
+		{"GET", "/v1/auth/perms/foo", 401, s.HandlePerm},
+		{"GET", "/v1/auth/idents/foo", 401, s.HandlePerm},
+		{"GET", "/v1/auth/perms", 401, s.HandlePerms},
+		{"GET", "/v1/auth/perms/", 401, s.HandlePerm},
+		{"GET", "/v1/auth/snapshot", 401, s.HandleSnapshot},
+		{"GET", "/v1/auth/snapshot/", 401, s.HandleSnapshot},
+		{"GET", "/v1/auth/publish/", 401, s.HandlePublish},
+		{"GET", "/v1/auth/publish", 401, s.HandlePublish},
+	}
+	for _, route := range routes {
+		t.Run(route.method+route.endpoint, func(t *testing.T) {
+			req, err := http.NewRequest(route.method, route.endpoint, nil)
+			if err != nil {
+				t.Error(err)
+			}
+			req.TLS = &tls.ConnectionState{
+				PeerCertificates: certs,
+			}
+			rr := httptest.NewRecorder()
+			handler := http.HandlerFunc(route.handler)
+			handler.ServeHTTP(rr, req)
+
+			expected := route.status
+			if got := rr.Code; got != expected {
+				t.Errorf("Expected %v, got: %v", expected, got)
+			}
+		})
+	}
+}
+
+func TestVerifyAuthWorks(t *testing.T) {
+	s, err := newTestServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(s.opts.DataDir)
+
+	s.opts.CertFile = "./../../test/certs/acme-client.pem"
+	s.opts.KeyFile = "./../../test/certs/acme-client-key.pem"
+	s.opts.CaFile = "./../../test/certs/ca.pem"
+	s.opts.HTTPUsers = []string{"CN=acme.example.com,OU=ACME"}
+	config, err := s.generateTLSConfig()
+	if err != nil {
+		t.Fatalf("Unexpected error when generating config: %s", err)
+	}
+
+	// Confirm request/response
+	certs := make([]*x509.Certificate, 0)
+	certs = append(certs, config.Certificates[0].Leaf)
+
+	// Test all the routes
+	routes := []struct {
+		method   string
+		endpoint string
+		status   int
+		handler  http.HandlerFunc
+	}{
+		{"GET", "/v1/auth/perms/foo", 500, s.HandlePerm},
+		{"GET", "/v1/auth/idents/foo", 500, s.HandlePerm},
+		{"GET", "/v1/auth/perms", 200, s.HandlePerms},
+		{"GET", "/v1/auth/perms/", 500, s.HandlePerm},
+		{"GET", "/v1/auth/snapshot", 404, s.HandleSnapshot},
+		{"GET", "/v1/auth/snapshot/", 404, s.HandleSnapshot},
+		{"GET", "/v1/auth/publish/", 405, s.HandlePublish},
+		{"GET", "/v1/auth/publish", 405, s.HandlePublish},
+	}
+	for _, route := range routes {
+		t.Run(route.method+route.endpoint, func(t *testing.T) {
+			req, err := http.NewRequest(route.method, route.endpoint, nil)
+			if err != nil {
+				t.Error(err)
+			}
+			req.TLS = &tls.ConnectionState{
+				PeerCertificates: certs,
+			}
+			rr := httptest.NewRecorder()
+			handler := http.HandlerFunc(route.handler)
+			handler.ServeHTTP(rr, req)
+
+			expected := route.status
+			if got := rr.Code; got != expected {
+				t.Errorf("Expected %v, got: %v", expected, got)
+			}
+			// fmt.Println(rr.Body.String())
+		})
 	}
 }
