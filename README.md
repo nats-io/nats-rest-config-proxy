@@ -165,7 +165,7 @@ Certificate subject attributes with permissions:
 | Command                 | GET | POST | PUT                    | DELETE |
 |-------------------------|-----|------|------------------------|--------|
 | /healthz                | 200 | 405  | 405                    | 405    |
-| /auth/snapshot?name=foo | 405 | 405  | snapshot current       | 405    |  
+| /auth/snapshot?name=foo | 405 | snapshot current config  | 405       | deletes named snapshot    |  
 | /auth/publish?name=foo  | 405 | 405  | Saves / invokes script | 405    |
 
 ### Examples
