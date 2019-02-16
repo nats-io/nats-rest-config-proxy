@@ -74,7 +74,7 @@ auth {
 
 ## How it works
 
-The NATS REST Configuratinon proxy operates using a data directory a
+The NATS REST Configuration proxy operates using a data directory a
 configuration file, and a publish script.
 
 The process is straightforward:
