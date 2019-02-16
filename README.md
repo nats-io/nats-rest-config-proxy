@@ -1,4 +1,4 @@
-[![License][License-Image]][License-Url][![Build][Build-Status-Image]][Build-Status-Url] [![Coverage][Coverage-Image]][Coverage-Url]
+[![License][License-Image]][License-Url][![Build][Build-Status-Image]][Build-Status-Url] [![Coverage][Coverage-Image]][Coverage-Url][![Version](https://d25lcipzij17d.cloudfront.net/badge.svg?id=go&type=5&v=0.1.0)](https://github.com/nats-io/nats-rest-config-proxy/releases/tag/v0.1.0)
 
 # NATS REST Configuration Proxy
 
