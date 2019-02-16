@@ -8,7 +8,7 @@ RUN apk add --update git
 
 COPY . .
 
-RUN cd $GOPATH/src/github.com/nats-io/nats-rest-config-proxy/cmd/nats-rest-config-proxy && CGO_ENABLED=0 go build -v -a -tags netgo -installsuffix netgo -ldflags "-s -w" -o /nats-rest-config-proxy
+RUN CGO_ENABLED=0 go build -v -a -tags netgo -installsuffix netgo -ldflags "-s -w" -o /nats-rest-config-proxy
 
 FROM alpine:3.8
 
