@@ -2,13 +2,21 @@
 
 # NATS REST Configuration Proxy
 
-### Getting started
+The NATS Server ACL configuration proxy provides a secure REST interface
+for modifying access control lists (ACLs), identities (users), and
+passwords.  This proxy is designed to faciliate the development of command
+line tools and/or user interfaces to remotely update a NATS server
+configuration.
+
+Only identities and permissions are supported at this time.
+
+## Getting started
 
 ```sh
 go get -u github.com/nats-io/nats-rest-config-proxy
 ```
 
-### Usage
+## Usage
 
 ```sh
 Usage: nats-rest-config-proxy [options...]
@@ -36,11 +44,60 @@ Common Options:
     -v, --version                 Show version
 ```
 
-### Developing
+### Configuration file
+
+The NATS REST ACL Proxy supports a configuration file.  Authorization based
+on the subject attributes of a client certificate is also supported.
+
+```text
+listen = '0.0.0.0:4567'
+
+data_dir = 'test/data'
+
+logging {
+  debug = true
+  trace = true
+}
+
+tls {
+  ca = 'test/certs/ca.pem'
+  cert = 'test/certs/server.pem'
+  key = 'test/certs/server-key.pem'
+}
+
+auth {
+  users = [
+    { user = "CN=cncf.example.com,OU=CNCF" }
+  ]
+}
+```
+
+## How it works
+
+The NATS REST Configuratinon proxy operates using a data directory a
+configuration file, and a publish script.
+
+The process is fairly simple:
+
+1. Add or update a temporary configuration using the REST API.
+2. Take a snapshot to save the current work in the data directory
+3. Invoke the publish command to copy a snapshort into the
+configuration file and invoke the optional publish script.
+
+### Why a script
+
+A script is used for versatility.  For some, this could be used as
+a step in a github devops flow and the script creates a PR with the new configuration
+for human eyes to review.  For others, the updated file is copied to remote nodes and
+then NATS servers are reloaded with remote commands, e.g. `ssh -t gnatsd -sl reload`.
+One could even work on an included NATS server file directly, with changes to be picked
+up nightly.  There are many options.
+
+## Developing
 
 ```sh
 # Build locally using Go modules
-$ GO111MODULE=on go run cmd/nats-rest-config-proxy/main.go
+$ GO111MODULE=on go run main.go
 [41405] 2019/02/11 16:18:52.713366 [INF] Starting nats-rest-config-proxy v0.0.1
 [41405] 2019/02/11 16:18:52.713804 [INF] Listening on 0.0.0.0:4567
 
@@ -48,10 +105,135 @@ $ GO111MODULE=on go run cmd/nats-rest-config-proxy/main.go
 $ go test ./... -v
 ```
 
-### License
+Note:  To test locally, you'll need to add a hostname into your `/etc/hosts` file:
+`127.0.0.1 nats-cluster.default.svc.cluster.local`
+
+## REST API
+
+The NATS configuration proxy will return the following error codes:
+
+* 200 OK - success
+* 404 Not Found - resource was not found
+* 405 Method Not Allowed - unsupported operation
+* 409 Conflict -  the operation cannot be completed as a dependency will
+create an invalid configuration.
+
+| Resource            | GET                                  | POST | PUT               | DELETE                  |
+|---------------------|--------------------------------------|------|-------------------|-------------------------|
+| /auth/idents        | Get list of identities               | 405  | 405               | Delete all permissions  |
+| /auth/idents/(name) | Get specific identity w/ permissions | 405  | Update identity   | Delete named identity   |  
+| /auth/perms         | Get list of named permissions sets   | 405  | Create Permission | Delete all permissions  |
+| /auth/perms/(name)  | Get specific permission set          | 405  | Update Permission | Delete names permission |
+
+### Identity Add/Update Payload
+
+```json
+{“user”: “alice“, “password“: “foo”}
+```
+
+NKEY:
+
+```json
+{“nkey“ : “UC6NLCN7AS34YOJVCYD4PJ3QB7QGLYG5B5IMBT25VW5K4TNUJODM7BOX”}
+```
+
+Certificate subject attributes with permissions:
+
+```json
+{“user“ : “CN=rt01.axon.sa.sandbox03.dev.mastercard.int,OU=SCSS”, “permissions” : “normal_user”}
+```
+
+### Identity delete payload
+
+```json
+{“user“: “bob@synadia.com”}
+```
+
+```json
+{“nkey“ : “UC6NLCN7AS34YOJVCYD4PJ3QB7QGLYG5B5IMBT25VW5K4TNUJODM7BOX“}
+```
+
+### Permission add/update payload
+
+```json
+  normal_user : {
+    # Can send to foo, bar or baz only.
+    publish : {
+      “allow” : ["foo", "bar", "baz"]
+    }
+    # Can subscribe to everything but $SYSTEM prefixed subjects.
+    “subscribe” : {
+      “deny” : ["$SYSTEM.>"]
+    }
+  }
+```
+
+### Permission delete payload
+
+```json
+{ “normal_user” : {} }
+```
+
+### Commands
+
+| Command                 | GET | POST | PUT                    | DELETE |
+|-------------------------|-----|------|------------------------|--------|
+| /healthz                | 200 | 405  | 405                    | 405    |
+| /auth/snapshot?name=foo | 405 | 405  | snapshot current       | 405    |  
+| /auth/publish?name=foo  | 405 | 405  | Saves / invokes script | 405    |
+
+### Examples
+
+#### Create a permission
+
+```bash
+curl -X PUT http://127.0.0.1:4567/v1/auth/perms/sample-user -d '{
+ "publish": {
+   "allow": ["foo.*", "bar.>"]
+  },
+  "subscribe": {
+    "deny": ["quux"]
+  }
+}'
+```
+
+#### Get a permission
+
+```bash
+curl http://127.0.0.1:4567/v1/auth/perms/sample-user
+```
+
+#### Create a user
+
+```bash
+curl -X PUT http://127.0.0.1:4567/v1/auth/idents/sample-user -d '{
+  "username": "sample-user",
+  "password": "secret",
+  "permissions": "sample-user"
+}'
+```
+
+#### Get a user
+
+```bash
+curl http://127.0.0.1:4567/v1/auth/idents/sample-user
+```
+
+#### Build snapshot
+
+```bash
+curl -X POST http://127.0.0.1:4567/v1/auth/snapshot?name=snap1
+```
+
+#### Publish snapshot
+
+```bash
+curl -X POST http://127.0.0.1:4567/v1/auth/publish?name=snap2
+```
+
+## License
 
 Unless otherwise noted, the NATS source files are distributed under the Apache Version 2.0 license found in the LICENSE file.
-
 
 [License-Url]: https://www.apache.org/licenses/LICENSE-2.0
 [License-Image]: https://img.shields.io/badge/License-Apache2-blue.svg
