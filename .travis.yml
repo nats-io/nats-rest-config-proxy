@@ -9,3 +9,12 @@ install: true
 script:
   - env GO111MODULE=on go test ./... -v
   - if [[ "$TRAVIS_GO_VERSION" =~ 1.11 ]]; then ./scripts/cov.sh TRAVIS; else GOGC=10 go test -race -p=1 $EXCLUDE_VENDOR; fi
+
+# calls goreleaser
+deploy:
+- provider: script
+  skip_cleanup: true
+  script: env GO111MODULE=on curl -sL http://git.io/goreleaser | bash
+  on:
+    tags: true
+    condition: $TRAVIS_OS_NAME = linux

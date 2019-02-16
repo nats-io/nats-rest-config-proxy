@@ -1,0 +1,74 @@
+# This is an example goreleaser.yaml file with some sane defaults.
+# Make sure to check the documentation at http://goreleaser.com
+project_name: nats-rest-config-proxy
+
+release:
+  draft: true
+  github:
+    owner: nats-io
+    name: nats-rest-config-proxy
+
+  name_template: 'Release {{.Tag}}'
+
+builds:
+-
+  ldflags: -s -w
+  binary: nats-rest-config-proxy
+  env:
+    - CGO_ENABLED=0
+  goos:
+  - linux
+  - darwin
+  - windows
+  goarch:
+  - 386
+  - amd64
+  - arm
+  - arm64
+  goarm:
+  - 6
+  - 7
+  ignore:
+  - goos: darwin
+    goarch: 386
+
+
+archive:
+ # replacements:
+ #   darwin: Darwin
+ #   linux: Linux
+ #   windows: Windows
+ #   386: 386
+ #   amd64: x86_64
+  wrap_in_directory: true
+  name_template: '{{ .ProjectName }}-v{{ .Version }}-{{ .Os }}-{{ .Arch }}{{ if .Arm
+    }}v{{ .Arm }}{{ end }}'
+  format: zip
+  files:
+  - LICENSE
+  - README.md
+    
+checksum:
+  name_template: '{{ .ProjectName }}-v{{ .Version }}-checksums.txt'
+snapshot:
+  name_template: "{{ .Tag }}-snapshot"
+changelog:
+  sort: asc
+  filters:
+    exclude:
+    - '^doc:'
+    - '^test:'
+
+github_urls:
+  download: https://github.com
+
+nfpm:
+  formats:
+    - deb
+  name_template: '{{ .ProjectName }}-v{{ .Version }}-{{ .Os }}-{{ .Arch }}{{ if .Arm
+    }}v{{ .Arm }}{{ end }}'
+  bindir: /usr/local/bin
+  description: A REST configuration proxy for the NATS server
+  vendor: nats.io
+  homepage: https://nats.io
+  license: Apache 2.0
