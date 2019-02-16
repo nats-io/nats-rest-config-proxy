@@ -18,3 +18,6 @@ deploy:
   on:
     tags: true
     condition: $TRAVIS_OS_NAME = linux
+addons:
+  hosts:
+    - nats-cluster.default.svc.cluster.local
