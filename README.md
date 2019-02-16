@@ -217,6 +217,11 @@ curl -X POST http://127.0.0.1:4567/v1/auth/snapshot?name=snap1
 curl -X POST http://127.0.0.1:4567/v1/auth/publish?name=snap1
 ```
 
+## Our sponsor for this project
+
+Many thanks to [MasterCard](http://mastercard.com) for sponsoring this project.
+We appreciate MasterCard's support of NATS, CNCF, and the OSS community.
+
 ## License
 
 Unless otherwise noted, the NATS source files are distributed under the Apache Version 2.0 license found in the LICENSE file.
