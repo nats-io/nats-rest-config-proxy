@@ -127,35 +127,35 @@ create an invalid configuration.
 
 ### Identity Add/Update Payload
 
-```json
+```text
 {“user”: “alice“, “password“: “foo”}
 ```
 
 NKEY:
 
-```json
+```text
 {“nkey“ : “UC6NLCN7AS34YOJVCYD4PJ3QB7QGLYG5B5IMBT25VW5K4TNUJODM7BOX”}
 ```
 
 Certificate subject attributes with permissions:
 
-```json
+```text
 {“user“ : “CN=rt01.axon.sa.sandbox03.dev.mastercard.int,OU=SCSS”, “permissions” : “normal_user”}
 ```
 
 ### Identity delete payload
 
-```json
+```text
 {“user“: “bob@synadia.com”}
 ```
 
-```json
+```text
 {“nkey“ : “UC6NLCN7AS34YOJVCYD4PJ3QB7QGLYG5B5IMBT25VW5K4TNUJODM7BOX“}
 ```
 
 ### Permission add/update payload
 
-```json
+```text
   normal_user : {
     # Can send to foo, bar or baz only.
     publish : {
@@ -170,7 +170,7 @@ Certificate subject attributes with permissions:
 
 ### Permission delete payload
 
-```json
+```text
 { “normal_user” : {} }
 ```
 
