@@ -491,7 +491,7 @@ func TestTLSConfig(t *testing.T) {
 }
 
 func TestConfigureBadFile(t *testing.T) {
-	f := []string{"-c", "./../../test/certs/server.pem"}
+	f := []string{"-c", "./../../test/certs/server.pom"}
 	_, err := ConfigureOptions(f)
 	if err == nil {
 		t.Fatal("Expected error configuring server")

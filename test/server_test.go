@@ -204,12 +204,6 @@ func TestFullCycle(t *testing.T) {
 		t.Fatal("Timed out waiting for server to stop")
 	}
 
-	// Inspect the resulting file
-	// contents, err := ioutil.ReadFile("./data/snapshots/hello.json")
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
-
 	config := fmt.Sprintf("\nauthorization {\n include \"auth.json\" \n}\n")
 	err = ioutil.WriteFile("./data/current/main.conf", []byte(config), 0666)
 	if err != nil {
