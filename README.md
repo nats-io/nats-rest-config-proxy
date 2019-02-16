@@ -166,7 +166,7 @@ Certificate subject attributes with permissions:
 |-------------------------|-----|------|------------------------|--------|
 | /healthz                | 200 | 405  | 405                    | 405    |
 | /auth/snapshot?name=foo | 405 | snapshot current config  | 405       | deletes named snapshot    |  
-| /auth/publish?name=foo  | 405 | 405  | Saves / invokes script | 405    |
+| /auth/publish?name=foo  | 405 |  Saves / invokes script  | 405 | 405    |
 
 ### Examples
 
