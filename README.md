@@ -4,7 +4,7 @@
 
 The NATS Server ACL configuration proxy provides a secure REST interface
 for modifying access control lists (ACLs), identities (users), and
-passwords.  This proxy is designed to faciliate the development of command
+passwords.  This proxy is designed to facilitate the development of command
 line tools and/or user interfaces to remotely update a NATS server
 configuration.
 
@@ -77,12 +77,14 @@ auth {
 The NATS REST Configuratinon proxy operates using a data directory a
 configuration file, and a publish script.
 
-The process is fairly simple:
+The process is straightforward:
 
-1. Add or update a temporary configuration using the REST API.
-2. Take a snapshot to save the current work in the data directory
-3. Invoke the publish command to copy a snapshort into the
-configuration file and invoke the optional publish script.
+1. Launch the NATS REST Configuration proxy and specify the Authorization
+configuration file you'd like to modify.
+2. Use the REST API to modify users and permissions.
+3. Take a snapshot.  This saves the current work in the data directory.
+4. Invoke the publish command to copy a snapshot into the configuration
+file and invoke the optional publish script.
 
 ### Why a script
 
@@ -143,16 +145,6 @@ Certificate subject attributes with permissions:
 {“user“ : “CN=rt01.axon.sa.sandbox03.dev.mastercard.int,OU=SCSS”, “permissions” : “normal_user”}
 ```
 
-### Identity delete payload
-
-```text
-{“user“: “bob@synadia.com”}
-```
-
-```text
-{“nkey“ : “UC6NLCN7AS34YOJVCYD4PJ3QB7QGLYG5B5IMBT25VW5K4TNUJODM7BOX“}
-```
-
 ### Permission add/update payload
 
 ```text
@@ -166,12 +158,6 @@ Certificate subject attributes with permissions:
       “deny” : ["$SYSTEM.>"]
     }
   }
-```
-
-### Permission delete payload
-
-```text
-{ “normal_user” : {} }
 ```
 
 ### Commands
@@ -228,7 +214,7 @@ curl -X POST http://127.0.0.1:4567/v1/auth/snapshot?name=snap1
 #### Publish snapshot
 
 ```bash
-curl -X POST http://127.0.0.1:4567/v1/auth/publish?name=snap2
+curl -X POST http://127.0.0.1:4567/v1/auth/publish?name=snap1
 ```
 
 ## License
