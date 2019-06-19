@@ -217,7 +217,7 @@ curl -X POST http://127.0.0.1:4567/v1/auth/snapshot?name=snap1
 curl -X POST http://127.0.0.1:4567/v1/auth/publish?name=snap1
 ```
 
-## Usage Walkhrough
+## Usage Walkthrough
 
 In this example, we will create a couple of users with different permissions:
 
