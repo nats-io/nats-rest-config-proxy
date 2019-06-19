@@ -130,7 +130,7 @@ create an invalid configuration.
 ### Identity Add/Update Payload
 
 ```text
-{“user”: “alice“, “password“: “foo”}
+{“username”: “alice“, “password“: “foo”}
 ```
 
 NKEY:
@@ -142,15 +142,15 @@ NKEY:
 Certificate subject attributes with permissions:
 
 ```text
-{“user“ : “CN=rt01.axon.sa.sandbox03.dev.mastercard.int,OU=SCSS”, “permissions” : “normal_user”}
+{“username“ : “CN=rt01.axon.sa.sandbox03.dev.mastercard.int,OU=SCSS”, “permissions” : “normal_user”}
 ```
 
 ### Permission add/update payload
 
 ```text
-  normal_user : {
+  "normal_user" : {
     # Can send to foo, bar or baz only.
-    publish : {
+    "publish" : {
       “allow” : ["foo", "bar", "baz"]
     }
     # Can subscribe to everything but $SYSTEM prefixed subjects.
