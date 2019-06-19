@@ -217,6 +217,209 @@ curl -X POST http://127.0.0.1:4567/v1/auth/snapshot?name=snap1
 curl -X POST http://127.0.0.1:4567/v1/auth/publish?name=snap1
 ```
 
+## Usage Walthrough
+
+In this example, we will create a couple of users with different permissions:
+
+| Ident     | DN in TLS cert              | Permissions |
+| acme-user | CN=acme.example.com,OU=ACME | admin       |
+| cncf-user | CN=cncf.example.com,OU=CNCF | guest       |
+
+First we will start the server, and use the `-d` flag to setup the directory that will contain the users that were created via the proxy:
+
+```
+$ mkdir config
+$ nats-rest-config-proxy -DV -d config
+[5875] 2019/06/18 14:43:44.826782 [INF] Starting nats-rest-config-proxy v0.1.0
+[5875] 2019/06/18 14:43:44.829134 [INF] Listening on 0.0.0.0:4567
+```
+
+Next, let's create the permissions for both `guest` and `admin` users:
+
+```sh
+curl -X PUT http://127.0.0.1:4567/v1/auth/perms/guest -d '{
+ "publish": {
+   "allow": ["foo.*", "bar.>"]
+  },
+  "subscribe": {
+    "deny": ["quux"]
+  }
+}'
+
+curl -X PUT http://127.0.0.1:4567/v1/auth/perms/admin -d '{
+ "publish": {
+   "allow": [">"]
+  },
+  "subscribe": {
+    "allow": [">"]
+  }
+}'
+```
+
+Now that we have created the permissions, let's bind some users to these permissions:
+
+```sh
+curl -X PUT http://127.0.0.1:4567/v1/auth/idents/cncf-user -d '{
+  "username": "CN=cncf.example.com,OU=CNCF",
+  "permissions": "guest"
+}'
+
+curl -X PUT http://127.0.0.1:4567/v1/auth/idents/acme-user -d '{
+  "username": "CN=acme.example.com,OU=ACME",
+  "permissions": "admin"
+}'
+```
+
+We now can create a named snapshot for this setup. Let's create one named `v1`:
+
+```sh
+curl -X POST http://127.0.0.1:4567/v1/auth/snapshot?name=v1
+```
+
+Then publish the configuration:
+
+```sh
+curl -X POST http://127.0.0.1:4567/v1/auth/publish?name=v1
+```
+
+At this point, we will have the following directory structure in the config directory:
+
+```
+ tree config
+config
+├── current
+│   └── auth.json
+├── resources
+│   ├── permissions
+│   │   ├── admin.json
+│   │   └── guest.json
+│   └── users
+│       ├── acme-user.json
+│       └── cncf-user.json
+└── snapshots
+    └── v1.json
+```
+
+And the published auth configuration will look like:
+
+```js
+$ cat config/current/auth.json 
+{
+  "users": [
+    {
+      "username": "CN=acme.example.com,OU=ACME",
+      "permissions": {
+        "publish": {
+          "allow": [
+            ">"
+          ]
+        },
+        "subscribe": {
+          "allow": [
+            ">"
+          ]
+        }
+      }
+    },
+    {
+      "username": "CN=cncf.example.com,OU=CNCF",
+      "permissions": {
+        "publish": {
+          "allow": [
+            "foo.*",
+            "bar.>"
+          ]
+        },
+        "subscribe": {
+          "deny": [
+            "quux"
+          ]
+        }
+      }
+    }
+  ]
+}
+```
+
+This configuration can now be included by a `nats-server`. Note that in order to enable checking permissions based on a TLS certificate, it is needed to set `verify_and_map=` to `true` in the `tls` config:
+
+```conf
+tls {
+  cert_file = "./certs/server.pem"
+  key_file = "./certs/server-key.pem"
+  ca_file = "./certs/ca.pem"
+  verify_and_map = true
+}
+
+authorization {
+  include "config/current/auth.json"
+}
+```
+
+Starting the NATS Server with the configuration:
+
+```
+nats-server -c nats.conf  -DV
+[6342] 2019/06/18 18:04:38.899054 [INF] Starting nats-server version 2.0.0
+[6342] 2019/06/18 18:04:38.899177 [DBG] Go build version go1.12
+[6342] 2019/06/18 18:04:38.899557 [INF] Listening for client connections on 0.0.0.0:4222
+[6342] 2019/06/18 18:04:38.899570 [INF] TLS required for client connections
+[6342] 2019/06/18 18:04:38.899578 [INF] Server id is NCFA6C5OC45PKJOISSDCWBEDQ4YMKOH57WHCWLL6EZ2Y723WAAIUHPJI
+[6342] 2019/06/18 18:04:38.899584 [INF] Server is ready
+```
+
+Now if the following app tries to connect and publish to a subject without permissions it won't be able to:
+
+```go
+package main
+
+import (
+	"log"
+
+	"github.com/nats-io/nats.go"
+)
+
+func main() {
+	nc, err := nats.Connect("nats://nats-cluster.default.svc.cluster.local:4222",
+		nats.ErrorHandler(func(_ *nats.Conn, _ *nats.Subscription, err error) {
+			log.Println("Error:", err)
+		}),
+		nats.ClientCert("./certs/cncf-client.pem", "./certs/cnfc-client-key.pem"),
+		nats.RootCAs("./certs/ca.pem"),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	nc.Publish("ng", []byte("first"))
+	nc.Publish("foo.bar", []byte("second"))
+	nc.Flush()
+	nc.Drain()
+}
+```
+
+Example logs from the server:
+
+```
+[6404] 2019/06/18 18:10:11.921048 [DBG] 127.0.0.1:55492 - cid:1 - Client connection created
+[6404] 2019/06/18 18:10:11.921561 [DBG] 127.0.0.1:55492 - cid:1 - Starting TLS client connection handshake
+[6404] 2019/06/18 18:10:11.929261 [DBG] 127.0.0.1:55492 - cid:1 - TLS handshake complete
+[6404] 2019/06/18 18:10:11.929367 [DBG] 127.0.0.1:55492 - cid:1 - TLS version 1.2, cipher suite TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+[6404] 2019/06/18 18:10:11.929615 [TRC] 127.0.0.1:55492 - cid:1 - <<- [CONNECT {"verbose":false,"pedantic":false,"tls_required":true,"name":"","lang":"go","version":"1.7.0","protocol":1,"echo":true}]
+[6404] 2019/06/18 18:10:11.929782 [DBG] 127.0.0.1:55492 - cid:1 - User in cert [""], not found
+[6404] 2019/06/18 18:10:11.929801 [DBG] 127.0.0.1:55492 - cid:1 - Using certificate subject for auth ["CN=cncf.example.com,OU=CNCF"]
+[6404] 2019/06/18 18:10:11.929833 [TRC] 127.0.0.1:55492 - cid:1 - <<- [PING]
+[6404] 2019/06/18 18:10:11.929843 [TRC] 127.0.0.1:55492 - cid:1 - ->> [PONG]
+[6404] 2019/06/18 18:10:11.930454 [TRC] 127.0.0.1:55492 - cid:1 - <<- [PUB ng 5]
+[6404] 2019/06/18 18:10:11.930470 [TRC] 127.0.0.1:55492 - cid:1 - <<- MSG_PAYLOAD: ["first"]
+[6404] 2019/06/18 18:10:11.930498 [TRC] 127.0.0.1:55492 - cid:1 - ->> [-ERR Permissions Violation for Publish to "ng"]
+[6404] 2019/06/18 18:10:11.930567 [ERR] 127.0.0.1:55492 - cid:1 - Publish Violation - User "CN=cncf.example.com,OU=CNCF", Subject "ng"
+[6404] 2019/06/18 18:10:11.930583 [TRC] 127.0.0.1:55492 - cid:1 - <<- [PUB foo.bar 6]
+[6404] 2019/06/18 18:10:11.930608 [TRC] 127.0.0.1:55492 - cid:1 - <<- MSG_PAYLOAD: ["second"]
+[6404] 2019/06/18 18:10:11.930629 [TRC] 127.0.0.1:55492 - cid:1 - <<- [PING]
+[6404] 2019/06/18 18:10:11.930661 [TRC] 127.0.0.1:55492 - cid:1 - ->> [PONG]
+[6404] 2019/06/18 18:10:11.931113 [DBG] 127.0.0.1:55492 - cid:1 - Client connection closed
+```
+
 ## Our sponsor for this project
 
 Many thanks to [MasterCard](http://mastercard.com) for sponsoring this project.
