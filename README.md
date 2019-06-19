@@ -217,11 +217,12 @@ curl -X POST http://127.0.0.1:4567/v1/auth/snapshot?name=snap1
 curl -X POST http://127.0.0.1:4567/v1/auth/publish?name=snap1
 ```
 
-## Usage Walthrough
+## Usage Walkhrough
 
 In this example, we will create a couple of users with different permissions:
 
 | Ident     | DN in TLS cert              | Permissions |
+|-----------|-----------------------------|-------------|
 | acme-user | CN=acme.example.com,OU=ACME | admin       |
 | cncf-user | CN=cncf.example.com,OU=CNCF | guest       |
 
