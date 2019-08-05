@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	gnatsd "github.com/nats-io/gnatsd/test"
-	"github.com/nats-io/go-nats"
+	gnatsd "github.com/nats-io/nats-server/v2/test"
+	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats-rest-config-proxy/internal/server"
 )
 
@@ -243,9 +243,9 @@ func TestFullCycle(t *testing.T) {
 	select {
 	case err := <-errCh:
 		got := err.Error()
-		expected := `nats: permissions violation for publish to "ng.1"`
+		expected := `nats: Permissions Violation for Publish to "ng.1"`
 		if got != expected {
-			t.Errorf("Expected %q, got: %q", got, expected)
+			t.Errorf("Expected %q, got: %q", expected, got)
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("Timed out waiting for server to stop")
@@ -254,9 +254,9 @@ func TestFullCycle(t *testing.T) {
 	select {
 	case err := <-errCh:
 		got := err.Error()
-		expected := `nats: permissions violation for publish to "ng.2"`
+		expected := `nats: Permissions Violation for Publish to "ng.2"`
 		if got != expected {
-			t.Errorf("Expected %q, got: %q", got, expected)
+			t.Errorf("Expected %q, got: %q", expected, got)
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("Timed out waiting for server to stop")

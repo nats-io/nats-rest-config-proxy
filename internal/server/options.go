@@ -20,7 +20,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/nats-io/gnatsd/conf"
+	"github.com/nats-io/nats-server/v2/conf"
 )
 
 var usageStr = `
