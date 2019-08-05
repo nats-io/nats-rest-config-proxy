@@ -12,7 +12,7 @@ import (
 	"time"
 
 	gnatsd "github.com/nats-io/nats-server/v2/test"
-	nats "github.com/nats-io/go-nats"
+	nats "github.com/nats-io/nats.go"
 	"github.com/nats-io/nats-rest-config-proxy/internal/server"
 )
 
