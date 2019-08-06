@@ -157,7 +157,6 @@ func (s *Server) ListenAndServe(addr string) error {
 	mux.HandleFunc("/healthz", s.HandleHealthz)
 	mux.HandleFunc("/v1/auth/idents/", s.HandleIdent)
 	mux.HandleFunc("/v1/auth/perms/", s.HandlePerm)
-
 	mux.HandleFunc("/v1/auth/idents", s.HandleIdents)
 	mux.HandleFunc("/v1/auth/perms", s.HandlePerms)
 	mux.HandleFunc("/v1/auth/snapshot", s.HandleSnapshot)
