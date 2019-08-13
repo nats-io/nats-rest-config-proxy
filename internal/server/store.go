@@ -223,17 +223,16 @@ func (s *Server) buildConfigSnapshot(name string) error {
 		}
 
 		if u.Account != "" {
-			if account, ok := accounts[u.Account]; ok {
-				// Add the user to the account
-				account.Users = append(account.Users, user)
-			} else {
+			account, ok := accounts[u.Account]
+			if !ok {
 				ausers := make([]*api.ConfigUser, 0)
-				ausers = append(ausers, user)
-				account := &api.Account{
+				account = &api.Account{
 					Users: ausers,
 				}
 				accounts[u.Account] = account
 			}
+			// Add the user to the account.
+			account.Users = append(account.Users, user)
 		} else {
 			users = append(users, user)
 		}
