@@ -177,7 +177,13 @@ func (s *Server) HandleIdent(w http.ResponseWriter, req *http.Request) {
 			status = http.StatusInternalServerError
 			return
 		}
-		fmt.Fprintf(w, "User %q updated\n", name)
+		var msg string
+		if u.Account != "" {
+			msg = fmt.Sprintf("User %q on %q account updated\n", name, u.Account)
+		} else {
+			msg = fmt.Sprintf("User %q on global account updated\n", name)
+		}
+		fmt.Fprintf(w, msg)
 	case "GET":
 		s.log.Debugf("Retrieving user resource %q", name)
 

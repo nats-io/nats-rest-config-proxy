@@ -182,14 +182,17 @@ func (s *Server) deleteConfigSnapshot(name string) error {
 	return os.Remove(path)
 }
 
-// buildConfigSnapshot will create the configuration with the users and permission.
+// buildConfigSnapshot will create the configuration with the users and permission
+// including the accounts.
 func (s *Server) buildConfigSnapshot(name string) error {
 	permissions, err := s.getPermissions()
 	if err != nil {
 		return err
 	}
 
+	// Users that belong to the global account.
 	users := make([]*api.ConfigUser, 0)
+	accounts := make(map[string]*api.Account)
 	files, err := ioutil.ReadDir(filepath.Join(s.resourcesDir(), "users"))
 	if err != nil {
 		return err
@@ -202,12 +205,10 @@ func (s *Server) buildConfigSnapshot(name string) error {
 		if err != nil {
 			return err
 		}
-
 		p, ok := permissions[u.Permissions]
 		if !ok {
 			s.log.Warnf("User %q will use default permissions", u.Username)
 		}
-
 		user := &api.ConfigUser{
 			Permissions: p,
 		}
@@ -220,11 +221,26 @@ func (s *Server) buildConfigSnapshot(name string) error {
 		if u.Password != "" {
 			user.Password = u.Password
 		}
-		users = append(users, user)
+
+		if u.Account != "" {
+			account, ok := accounts[u.Account]
+			if !ok {
+				ausers := make([]*api.ConfigUser, 0)
+				account = &api.Account{
+					Users: ausers,
+				}
+				accounts[u.Account] = account
+			}
+			// Add the user to the account.
+			account.Users = append(account.Users, user)
+		} else {
+			users = append(users, user)
+		}
 	}
 
 	ac := &api.AuthConfig{
-		Users: users,
+		Users:    users,
+		Accounts: accounts,
 	}
 	conf, err := ac.AsJSON()
 	if err != nil {

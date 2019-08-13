@@ -18,17 +18,26 @@ import (
 	"encoding/json"
 )
 
-// User represents the payload that a client can make
+// User represents the payload that a client can make.
 type User struct {
+	// Username
 	Username string `json:"username,omitempty"`
+
+	// Password
 	Password string `json:"password,omitempty"`
-	Nkey     string `json:"nkey,omitempty"`
+
+	// Nkey
+	Nkey string `json:"nkey,omitempty"`
 
 	// FIXME: Change into role and consolidate into a single type?
 	// it would have to be filtered out on export though since
 	// cannot have an extra field that is not recognized by the
 	// server.
 	Permissions string `json:"permissions,omitempty"`
+
+	// Account is the account on which this user exists,
+	// by default being the global account.
+	Account string `json:"account,omitempty"`
 }
 
 func marshalIndent(v interface{}) ([]byte, error) {
@@ -54,7 +63,10 @@ func (u *User) AsJSON() ([]byte, error) {
 
 // Permissions are the publish/subscribe rules.
 type Permissions struct {
+	// Publish are the publish permissions.
 	Publish   *PermissionRules `json:"publish,omitempty"`
+
+	// Subscribe are the subscriber permissions.
 	Subscribe *PermissionRules `json:"subscribe,omitempty"`
 }
 
@@ -63,7 +75,8 @@ func (p *Permissions) AsJSON() ([]byte, error) {
 	return marshalIndent(p)
 }
 
-// PermissionRules represents the allow/deny rules for publish/subscribe.
+// PermissionRules represents the allow/deny rules for
+// publish/subscribe.
 type PermissionRules struct {
 	Allow []string `json:"allow,omitempty"`
 	Deny  []string `json:"deny,omitempty"`
@@ -78,12 +91,23 @@ type ConfigUser struct {
 	Permissions *Permissions `json:"permissions,omitempty"`
 }
 
-// AuthConfig represents the complete authorization config
-// for the NATS Server.
-type AuthConfig struct {
+// Account with users.
+type Account struct {
+	// Users that belong to the account.
 	Users []*ConfigUser `json:"users"`
 }
 
+// AuthConfig represents the complete authorization config
+// for the NATS Server.
+type AuthConfig struct {
+	// Users that belong to the global account.
+	Users []*ConfigUser `json:"users"`
+
+	// Accounts that separate the subject namespaces.
+	Accounts map[string]*Account `json:"accounts,omitempty"`
+}
+
+// AsJSON returns the JSON representation of the AuthConfig.
 func (ac *AuthConfig) AsJSON() ([]byte, error) {
 	return marshalIndent(ac)
 }
