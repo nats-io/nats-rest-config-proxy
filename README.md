@@ -1,4 +1,4 @@
-[![License][License-Image]][License-Url][![Build][Build-Status-Image]][Build-Status-Url] [![Coverage Status](https://coveralls.io/repos/github/nats-io/nats-rest-config-proxy/badge.svg?branch=master&t=s8FTRY)](https://coveralls.io/github/nats-io/nats-rest-config-proxy?branch=master)[![Version](https://d25lcipzij17d.cloudfront.net/badge.svg?id=go&type=5&v=0.1.0)](https://github.com/nats-io/nats-rest-config-proxy/releases/tag/v0.1.0)
+[![License][License-Image]][License-Url][![Build][Build-Status-Image]][Build-Status-Url] [![Coverage Status](https://coveralls.io/repos/github/nats-io/nats-rest-config-proxy/badge.svg?branch=master&t=s8FTRY)](https://coveralls.io/github/nats-io/nats-rest-config-proxy?branch=master)[![Version](https://d25lcipzij17d.cloudfront.net/badge.svg?id=go&type=5&v=0.2.0)](https://github.com/nats-io/nats-rest-config-proxy/releases/tag/v0.2.0)
 
 # NATS REST Configuration Proxy
 
@@ -419,6 +419,212 @@ Example logs from the server:
 [6404] 2019/06/18 18:10:11.930629 [TRC] 127.0.0.1:55492 - cid:1 - <<- [PING]
 [6404] 2019/06/18 18:10:11.930661 [TRC] 127.0.0.1:55492 - cid:1 - ->> [PONG]
 [6404] 2019/06/18 18:10:11.931113 [DBG] 127.0.0.1:55492 - cid:1 - Client connection closed
+```
+
+## Using NATS v2.0 Accounts 
+
+In this example, we will create a couple of users on different accounts.
+
+| Ident        | Account          | Permissions |
+|--------------|------------------|-------------|
+| foo-1-user   | Foo              | guest       |
+| foo-2-user   | Foo              | admin       |
+| bar-1-user   | Bar              | guest	|
+| bar-2-user   | Bar              | admin	|
+
+Start the server using its own data directory:
+
+```
+$ mkdir config
+$ nats-rest-config-proxy -DV -d config
+[5875] 2019/06/18 14:43:44.826782 [INF] Starting nats-rest-config-proxy v0.1.0
+[5875] 2019/06/18 14:43:44.829134 [INF] Listening on 0.0.0.0:4567
+```
+
+Next, let's create the permissions for both `guest` and `admin` users:
+
+```sh
+curl -X PUT http://127.0.0.1:4567/v1/auth/perms/guest -d '{
+ "publish": {
+   "allow": ["foo.*", "bar.>"]
+  },
+  "subscribe": {
+    "deny": ["quux"]
+  }
+}'
+
+curl -X PUT http://127.0.0.1:4567/v1/auth/perms/admin -d '{
+ "publish": {
+   "allow": [">"]
+  },
+  "subscribe": {
+    "allow": [">"]
+  }
+}'
+```
+
+Now that we have created the permissions, let's bind some users to these permissions:
+
+```sh
+curl -X PUT http://127.0.0.1:4567/v1/auth/idents/foo-1-user -d '{
+  "username": "foo-1-user",
+  "password": "foo-1-secret",
+  "permissions": "guest",
+  "account": "Foo"
+}'
+
+curl -X PUT http://127.0.0.1:4567/v1/auth/idents/foo-2-user -d '{
+  "username": "foo-2-user",
+  "password": "foo-2-secret",
+  "permissions": "admin",
+  "account": "Foo"
+}'
+
+curl -X PUT http://127.0.0.1:4567/v1/auth/idents/bar-1-user -d '{
+  "username": "bar-1-user",
+  "password": "bar-1-secret",
+  "permissions": "guest",
+  "account": "Bar"
+}'
+
+curl -X PUT http://127.0.0.1:4567/v1/auth/idents/bar-2-user -d '{
+  "username": "bar-2-user",
+  "password": "bar-2-secret",
+  "permissions": "admin",
+  "account": "Bar"
+}'
+```
+
+We now can create a named snapshot for this setup. Let's create one named `v1`:
+
+```sh
+curl -X POST http://127.0.0.1:4567/v1/auth/snapshot?name=v1
+```
+
+Then publish the configuration:
+
+```sh
+curl -X POST http://127.0.0.1:4567/v1/auth/publish?name=v1
+```
+
+At this point, we will have the following directory structure in the config directory:
+
+```
+tree config
+config
+├── current
+│   └── auth.json
+├── resources
+│   ├── permissions
+│   │   ├── admin.json
+│   │   └── guest.json
+│   └── users
+│       ├── bar-1-user.json
+│       ├── bar-2-user.json
+│       ├── foo-1-user.json
+│       └── foo-2-user.json
+└── snapshots
+    └── v1.json
+```
+
+And the published auth configuration will look like:
+
+```js
+$ cat config/current/auth.json 
+{
+  "users": [],
+  "accounts": {
+    "Bar": {
+      "users": [
+        {
+          "username": "bar-1-user",
+          "password": "bar-1-secret",
+          "permissions": {
+            "publish": {
+              "allow": [
+                "foo.*",
+                "bar.>"
+              ]
+            },
+            "subscribe": {
+              "deny": [
+                "quux"
+              ]
+            }
+          }
+        },
+        {
+          "username": "bar-2-user",
+          "password": "bar-2-secret",
+          "permissions": {
+            "publish": {
+              "allow": [
+                ">"
+              ]
+            },
+            "subscribe": {
+              "allow": [
+                ">"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "Foo": {
+      "users": [
+        {
+          "username": "foo-1-user",
+          "password": "foo-1-secret",
+          "permissions": {
+            "publish": {
+              "allow": [
+                "foo.*",
+                "bar.>"
+              ]
+            },
+            "subscribe": {
+              "deny": [
+                "quux"
+              ]
+            }
+          }
+        },
+        {
+          "username": "foo-2-user",
+          "password": "foo-2-secret",
+          "permissions": {
+            "publish": {
+              "allow": [
+                ">"
+              ]
+            },
+            "subscribe": {
+              "allow": [
+                ">"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+This configuration can now be included by a `nats-server` in order to define a couple of variables that can be used as follow:
+
+```conf
+include "config/current/auth.json"
+
+authorization {
+  # Add users to the global account.
+  users = $users
+}
+
+# Create the users bound to different accounts.
+accounts = $accounts
+
 ```
 
 ## Our sponsor for this project
