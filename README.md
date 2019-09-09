@@ -49,7 +49,7 @@ Common Options:
 The NATS REST ACL Proxy supports a configuration file.  Authorization based
 on the subject attributes of a client certificate is also supported.
 
-```text
+```hcl
 listen = '0.0.0.0:4567'
 
 data_dir = 'test/data'
