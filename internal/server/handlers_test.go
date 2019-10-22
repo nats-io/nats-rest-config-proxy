@@ -18,6 +18,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -41,7 +42,7 @@ func createFixtures(t *testing.T, host string) {
           "subscribe": {
             "deny": ["quux"]
           }
-	}`
+        }`
 	resp, _, err := curl("PUT", host+"/v1/auth/perms/normal-user", []byte(payload))
 	if err != nil {
 		t.Fatal(err)
@@ -52,10 +53,10 @@ func createFixtures(t *testing.T, host string) {
 
 	// Create a couple of users
 	payload = `{
-	  "username": "first-user",
-	  "password": "secret",
+          "username": "first-user",
+          "password": "secret",
           "permissions": "normal-user"
-	}`
+        }`
 	resp, _, err = curl("PUT", host+"/v1/auth/idents/first-user", []byte(payload))
 	if err != nil {
 		t.Fatal(err)
@@ -64,10 +65,10 @@ func createFixtures(t *testing.T, host string) {
 		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
 	}
 	payload = `{
-	  "username": "second-user",
-	  "password": "secret",
+          "username": "second-user",
+          "password": "secret",
           "permissions": "normal-user"
-	}`
+        }`
 	resp, _, err = curl("PUT", host+"/v1/auth/idents/second-user", []byte(payload))
 	if err != nil {
 		t.Fatal(err)
@@ -123,10 +124,10 @@ func TestIdentsHandler(t *testing.T) {
 
 	// Create a couple of users
 	payload := `{
-	  "username": "sample-user",
-	  "password": "secret",
+          "username": "sample-user",
+          "password": "secret",
           "permissions": "normal-user"
-	}`
+        }`
 	resp, _, err := curl("PUT", host+"/v1/auth/idents/sample-user", []byte(payload))
 	if err != nil {
 		t.Fatal(err)
@@ -172,7 +173,7 @@ func TestPermsHandler(t *testing.T) {
           "subscribe": {
             "deny": ["quux"]
           }
-	}`
+        }`
 	resp, _, err := curl("PUT", host+"/v1/auth/perms/normal-user", []byte(payload))
 	if err != nil {
 		t.Fatal(err)
@@ -665,7 +666,7 @@ func TestPermsList(t *testing.T) {
 	payload := `{ 
           "publish":   { "allow": ["hello", "world"] },
           "subscribe": { "allow": ["public.>"], "deny": ["private.>"] }
-	}`
+        }`
 	resp, _, err := curl("PUT", host+"/v1/auth/perms/normal-user", []byte(payload))
 	if err != nil {
 		t.Fatal(err)
@@ -677,7 +678,7 @@ func TestPermsList(t *testing.T) {
 	payload = `{ 
           "publish":   { "allow": [">"] },
           "subscribe": { "allow": [">"] }
-	}`
+        }`
 	resp, _, err = curl("PUT", host+"/v1/auth/perms/admin-user", []byte(payload))
 	if err != nil {
 		t.Fatal(err)
@@ -828,7 +829,7 @@ func TestGetSinglePermission(t *testing.T) {
 	payload := `{ 
           "publish":   { "allow": ["hello", "world"] },
           "subscribe": { "allow": ["public.>"], "deny": ["private.>"] }
-	}`
+        }`
 	resp, _, err := curl("PUT", host+"/v1/auth/perms/normal-user", []byte(payload))
 	if err != nil {
 		t.Fatal(err)
@@ -840,7 +841,7 @@ func TestGetSinglePermission(t *testing.T) {
 	payload = `{ 
           "publish":   { "allow": [">"] },
           "subscribe": { "allow": [">"] }
-	}`
+        }`
 	resp, _, err = curl("PUT", host+"/v1/auth/perms/admin-user", []byte(payload))
 	if err != nil {
 		t.Fatal(err)
@@ -1233,4 +1234,293 @@ func TestVerifyAuthWorks(t *testing.T) {
 			// fmt.Println(rr.Body.String())
 		})
 	}
+}
+
+func TestAccountsHandler(t *testing.T) {
+	s, err := newTestServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(s.opts.DataDir)
+
+	ctx, done := context.WithTimeout(context.Background(), 2*time.Second)
+	defer done()
+	go s.Run(ctx)
+	defer s.Shutdown(ctx)
+	waitServerIsReady(t, ctx, s)
+
+	// The order in the following tests is important since there
+	// is state dependent from each other.
+	host := fmt.Sprintf("http://%s:%d", s.opts.Host, s.opts.Port)
+	for _, test := range []struct {
+		name     string
+		account  string
+		payload  string
+		expected *api.Account
+		err      error
+	}{
+		{
+			"create foo account with exports",
+			"foo",
+			`{
+                           "exports": [
+                             { "stream": "foo.public.>" },
+                             { "service": "foo.api" }
+                           ]
+                        }`,
+			&api.Account{
+				Exports: []*api.Export{
+					{
+						Stream: "foo.public.>",
+					},
+					{
+						Service: "foo.api",
+					},
+				},
+			},
+			nil,
+		},
+		{
+			"create bar account with limited scope export",
+			"bar",
+			`{
+                           "exports": [
+                             { "stream": "bar.public.>", "accounts": ["foo"] }
+                           ]
+                        }`,
+			&api.Account{
+				Exports: []*api.Export{
+					{
+						Stream:   "bar.public.>",
+						Accounts: []string{"foo"},
+					},
+				},
+			},
+			nil,
+		},
+		{
+			"create account with limited scope export that does not exist should fail",
+			"fail",
+			`{
+                           "exports": [
+                             { "stream": "quux.public.>", "accounts": ["none"] }
+                           ]
+                        }`,
+			nil,
+			errors.New(`Error: Account "none" defined in export does not exist`),
+		},
+		{
+			"create quux account with stream import for foo which is public",
+			"quux",
+			`{
+                           "imports": [
+                             { "stream": {"account": "foo", "subject": "foo.public.>" } }
+                           ]
+                        }`,
+			&api.Account{
+				Imports: []*api.Import{
+					{
+						Stream: &api.GenericImport{
+							Account: "foo",
+							Subject: "foo.public.>",
+						},
+					},
+				},
+			},
+			nil,
+		},
+		{
+			"create quuz account with service imports for foo which is public",
+			"quuz",
+			`{
+                           "imports": [
+                             { "service": {"account": "foo", "subject": "foo.api" } }
+                           ]
+                        }`,
+			&api.Account{
+				Imports: []*api.Import{
+					{
+						Service: &api.GenericImport{
+							Account: "foo",
+							Subject: "foo.api",
+						},
+					},
+				},
+			},
+			nil,
+		},
+		{
+			"create account with service imports for account that does not exist",
+			"fail",
+			`{
+                           "imports": [
+                             { "service": {"account": "none", "subject": "foo.api" } }
+                           ]
+                        }`,
+			nil,
+			errors.New(`Error: Account "none" defined in export does not exist`),
+		},
+		{
+			"create fail account with stream imports for account that does not exist",
+			"fail",
+			`{
+                           "imports": [
+                             { "stream": {"account": "none", "subject": "foo.api" } }
+                           ]
+                        }`,
+			nil,
+			errors.New(`Error: Account "none" defined in export does not exist`),
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			resp, body, err := curl("PUT", host+"/v1/auth/accounts/"+test.account, []byte(test.payload))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if test.err != nil {
+				if resp.StatusCode == 200 {
+					t.Fatalf("Expected error, got success")
+				}
+				got := string(body)
+				expected := test.err.Error() + "\n"
+				if got != expected {
+					t.Errorf("\nExpected: %+v\n     Got: %+v", expected, got)
+				}
+
+				return
+			}
+
+			if resp.StatusCode != 200 {
+				t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+			}
+			acc, err := s.getAccountResource(test.account)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(test.expected, acc) {
+				t.Errorf("Expected: %+v\nGot: %+v", test.expected, acc)
+			}
+		})
+	}
+
+	// Create a user in each of the accounts.
+	t.Run("publishing with multiple users using v1 endpoint", func(t *testing.T) {
+		accounts := []string{"foo", "bar", "quux", "quuz"}
+		for _, acc := range accounts {
+			payload := `{
+                          "username": "%s-user",
+                          "password": "secret",
+                          "account": "%s"
+                        }`
+			payload = fmt.Sprintf(payload, acc, acc)
+
+			endpoint := fmt.Sprintf("%s/v1/auth/idents/%s-user", host, acc)
+			resp, _, err := curl("PUT", endpoint, []byte(payload))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if resp.StatusCode != 200 {
+				t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+			}
+		}
+
+		// Now publish with the v1 endpoint
+		// Create a Snapshot
+		resp, _, err := curl("POST", host+"/v1/auth/snapshot?name=v1", []byte(""))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != 200 {
+			t.Errorf("Expected OK, got: %v", resp.StatusCode)
+		}
+
+		// Publish a named snapshot
+		resp, _, err = curl("POST", host+"/v1/auth/publish?name=v1", []byte(""))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != 200 {
+			t.Errorf("Expected OK, got: %v", resp.StatusCode)
+		}
+
+		// Confirm the result
+		contents, err := ioutil.ReadFile(s.opts.DataDir + "/current/auth.json")
+		if err != nil {
+			t.Fatal(err)
+		}
+		expected := `{
+  "users": [],
+  "accounts": {
+    "bar": {
+      "users": [
+        {
+          "username": "bar-user",
+          "password": "secret"
+        }
+      ],
+      "exports": [
+        {
+          "stream": "bar.public.>",
+          "accounts": [
+            "foo"
+          ]
+        }
+      ]
+    },
+    "foo": {
+      "users": [
+        {
+          "username": "foo-user",
+          "password": "secret"
+        }
+      ],
+      "exports": [
+        {
+          "stream": "foo.public.>"
+        },
+        {
+          "service": "foo.api"
+        }
+      ]
+    },
+    "quux": {
+      "users": [
+        {
+          "username": "quux-user",
+          "password": "secret"
+        }
+      ],
+      "imports": [
+        {
+          "stream": {
+            "account": "foo",
+            "subject": "foo.public.>"
+          }
+        }
+      ]
+    },
+    "quuz": {
+      "users": [
+        {
+          "username": "quuz-user",
+          "password": "secret"
+        }
+      ],
+      "imports": [
+        {
+          "service": {
+            "account": "foo",
+            "subject": "foo.api"
+          }
+        }
+      ]
+    }
+  }
+}
+`
+		got := string(contents)
+		if got != expected {
+			t.Errorf("Expected: %+v\nGot: %+v", expected, got)
+		}
+	})
 }

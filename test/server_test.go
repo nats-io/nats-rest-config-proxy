@@ -282,6 +282,22 @@ func TestFullCycleWithAccounts(t *testing.T) {
 	}()
 	waitServerIsReady(t, ctx, host)
 
+	// Need to create the accounts first, use an empty JSON payload to create them.
+	resp, _, err := curl("PUT", host+"/v1/auth/accounts/foo", []byte("{}"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+	resp, _, err = curl("PUT", host+"/v1/auth/accounts/bar", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
 	// Create a couple of users
 	payload := `{
 	  "username": "foo-user",
@@ -289,7 +305,7 @@ func TestFullCycleWithAccounts(t *testing.T) {
           "permissions": "normal-user",
           "account": "foo"
 	}`
-	resp, _, err := curl("PUT", host+"/v1/auth/idents/foo-user", []byte(payload))
+	resp, _, err = curl("PUT", host+"/v1/auth/idents/foo-user", []byte(payload))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -347,7 +363,7 @@ func TestFullCycleWithAccounts(t *testing.T) {
 		t.Fatal(err)
 	}
 	if resp.StatusCode != 200 {
-		t.Errorf("Expected OK, got: %v", resp.StatusCode)
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
 	}
 
 	// Publish a named snapshot.
@@ -356,7 +372,7 @@ func TestFullCycleWithAccounts(t *testing.T) {
 		t.Fatal(err)
 	}
 	if resp.StatusCode != 200 {
-		t.Errorf("Expected OK, got: %v", resp.StatusCode)
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
 	}
 
 	select {

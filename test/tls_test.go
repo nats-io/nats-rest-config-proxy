@@ -408,6 +408,22 @@ func TestTLSAuthFullCycleWithAccounts(t *testing.T) {
 	}()
 	waitServerIsReady(t, ctx, host)
 
+	// Need to create the accounts first, use an empty JSON payload to create them.
+	resp, _, err := curl("PUT", host+"/v1/auth/accounts/cncf", []byte("{}"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+	resp, _, err = curl("PUT", host+"/v1/auth/accounts/acme", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
 	// Create the permissions
 	payload := `{
 	         "publish": {
@@ -417,7 +433,7 @@ func TestTLSAuthFullCycleWithAccounts(t *testing.T) {
 	            "deny": ["quux"]
 	          }
 		}`
-	resp, _, err := curl("PUT", host+"/v1/auth/perms/normal-user", []byte(payload))
+	resp, _, err = curl("PUT", host+"/v1/auth/perms/normal-user", []byte(payload))
 	if err != nil {
 		t.Fatal(err)
 	}

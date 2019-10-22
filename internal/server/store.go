@@ -44,6 +44,30 @@ func (s *Server) storeUserResource(name string, user *api.User) error {
 	return ioutil.WriteFile(path, payload, 0666)
 }
 
+// storeAccountResource
+func (s *Server) storeAccountResource(name string, account *api.Account) error {
+	path := filepath.Join(s.resourcesDir(), "accounts", fmt.Sprintf("%s.json", name))
+	payload, err := account.AsJSON()
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(path, payload, 0666)
+}
+
+// getAccountResource reads an account resource from a file.
+func (s *Server) getAccountResource(name string) (u *api.Account, err error) {
+	path := filepath.Join(s.resourcesDir(), "accounts", fmt.Sprintf("%s.json", name))
+	data, err := ioutil.ReadFile(path)
+	if err != nil {
+		return
+	}
+	err = json.Unmarshal(data, &u)
+	if err != nil {
+		return
+	}
+	return
+}
+
 // getPermissionResource reads a permissions resource from a file
 // then returns a set of permissions.
 func (s *Server) getPermissionResource(name string) (u *api.Permissions, err error) {
@@ -225,9 +249,17 @@ func (s *Server) buildConfigSnapshot(name string) error {
 		if u.Account != "" {
 			account, ok := accounts[u.Account]
 			if !ok {
+				// Look for the info from this account.
+				acc, err := s.getAccountResource(u.Account)
+				if err != nil {
+					return err
+				}
+
 				ausers := make([]*api.ConfigUser, 0)
 				account = &api.Account{
-					Users: ausers,
+					Users:   ausers,
+					Exports: acc.Exports,
+					Imports: acc.Imports,
 				}
 				accounts[u.Account] = account
 			}
@@ -279,6 +311,9 @@ func (s *Server) setupStoreDirectories() error {
 		return err
 	}
 	if err := os.MkdirAll(filepath.Join(s.resourcesDir(), "permissions"), 0755); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Join(s.resourcesDir(), "accounts"), 0755); err != nil {
 		return err
 	}
 	return nil

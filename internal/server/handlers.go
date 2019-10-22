@@ -468,6 +468,132 @@ func (s *Server) HandleIdents(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// HandleAccounts
+func (s *Server) HandleAccounts(w http.ResponseWriter, req *http.Request) {
+	var (
+		size   int
+		status int = http.StatusOK
+		err    error
+	)
+	defer func() {
+		s.processErr(err, status, w, req)
+		s.log.traceRequest(req, size, status, time.Now())
+	}()
+
+	err = s.verifyAuth(w, req)
+	if err != nil {
+		status = http.StatusUnauthorized
+		return
+	}
+
+	name := strings.TrimPrefix(req.URL.Path, "/v1/auth/accounts/")
+	switch req.Method {
+	case "PUT":
+		s.log.Infof("Updating account resource %q", name)
+		var payload []byte
+		payload, err = ioutil.ReadAll(req.Body)
+		if err != nil {
+			status = http.StatusInternalServerError
+			return
+		}
+		size = len(payload)
+
+		// If no payload, just create an empty object that
+		// will help create the account.
+		var a *api.Account
+		if size == 0 {
+			a = &api.Account{}
+		} else {
+			err = json.Unmarshal(payload, &a)
+			if err != nil {
+				status = http.StatusBadRequest
+				return
+			}
+		}
+
+		// Validate that the metadata from the account is ok.
+		//
+		// - Check that the accounts in the imports have been defined
+		// - Check that the imports are correct and offered by the
+		//   other account.
+		//
+
+		// TODO: Bad request, prevent defining users in the payload.
+
+		// Verify imports and exports and prevent bad requests.
+		hasExports := a.Exports != nil
+		hasImports := a.Imports != nil
+		if hasExports {
+			// Check whether the exports have explicitly defined with
+			// which accounts the stream/service can be shared.
+			for _, exp := range a.Exports {
+				// TODO: Check whether a stream or service were defined, otherwise bad request.
+				for _, acc := range exp.Accounts {
+					if _, err = s.getAccountResource(acc); err != nil {
+						if os.IsNotExist(err) {
+							err = fmt.Errorf("Account %q defined in export does not exist", acc)
+							status = http.StatusBadRequest
+						} else {
+							status = http.StatusInternalServerError
+						}
+						return
+					}
+				}
+			}
+		}
+		if hasImports {
+			for _, imp := range a.Imports {
+				hasService := imp.Service != nil
+				hasStream := imp.Stream != nil
+
+				switch {
+				case hasService && hasStream:
+					// TODO: Invalid request, should be either
+				case hasService:
+					// TODO: Bad request, account was not defined
+					// TODO: Bad request, subject was not defined
+					acc := imp.Service.Account
+					if _, err = s.getAccountResource(acc); err != nil {
+						if os.IsNotExist(err) {
+							err = fmt.Errorf("Account %q defined in export does not exist", acc)
+							status = http.StatusBadRequest
+						} else {
+							status = http.StatusInternalServerError
+						}
+						return
+					}
+				case hasStream:
+					// TODO: Bad request, account was not defined
+					// TODO: Bad request, subject was not defined
+					acc := imp.Stream.Account
+					if _, err = s.getAccountResource(acc); err != nil {
+						if os.IsNotExist(err) {
+							err = fmt.Errorf("Account %q defined in export does not exist", acc)
+							status = http.StatusBadRequest
+						} else {
+							status = http.StatusInternalServerError
+						}
+						return
+					}
+				default:
+					panic("unreachable")
+				}
+			}
+		}
+
+		// Store account information
+		s.log.Tracef("Account %q: %+v", name, a)
+		err = s.storeAccountResource(name, a)
+		if err != nil {
+			status = http.StatusInternalServerError
+			return
+		}
+		fmt.Fprintf(w, "OK\n")
+	case "GET":
+		// TODO:
+	}
+}
+
 // HandleHealthz handles healthz.
 func (s *Server) HandleHealthz(w http.ResponseWriter, req *http.Request) {
 	var (

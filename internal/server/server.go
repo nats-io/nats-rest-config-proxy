@@ -163,6 +163,8 @@ func (s *Server) ListenAndServe(addr string) error {
 	mux.HandleFunc("/v1/auth/snapshot/", s.HandleSnapshot)
 	mux.HandleFunc("/v1/auth/publish", s.HandlePublish)
 	mux.HandleFunc("/v1/auth/publish/", s.HandlePublish)
+	mux.HandleFunc("/v1/auth/accounts", s.HandleAccounts)
+	mux.HandleFunc("/v1/auth/accounts/", s.HandleAccounts)
 	srv := &http.Server{
 		Addr:           addr,
 		Handler:        mux,

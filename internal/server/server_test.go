@@ -60,7 +60,6 @@ func newTestServer() (*Server, error) {
 		return nil, err
 	}
 	return s, nil
-
 }
 
 func waitServerIsReady(t *testing.T, ctx context.Context, s *Server) {
