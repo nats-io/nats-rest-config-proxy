@@ -531,7 +531,12 @@ func (s *Server) HandleAccounts(w http.ResponseWriter, req *http.Request) {
 			// Check whether the exports have explicitly defined with
 			// which accounts the stream/service can be shared.
 			for _, exp := range a.Exports {
-				// TODO: Check whether a stream or service were defined, otherwise bad request.
+				if exp.Stream == "" && exp.Service == "" {
+					err = fmt.Errorf("Stream or service must be defined in export")
+					status = http.StatusBadRequest
+					return
+				}
+
 				for _, acc := range exp.Accounts {
 					if _, err = s.getAccountResource(acc); err != nil {
 						if os.IsNotExist(err) {
