@@ -557,10 +557,21 @@ func (s *Server) HandleAccounts(w http.ResponseWriter, req *http.Request) {
 
 				switch {
 				case hasService && hasStream:
-					// TODO: Invalid request, should be either
+					err = fmt.Errorf("Import must define either service or stream, but not both")
+					status = http.StatusBadRequest
+					return
 				case hasService:
-					// TODO: Bad request, account was not defined
-					// TODO: Bad request, subject was not defined
+					if imp.Service.Account == "" {
+						err = fmt.Errorf("Import must have service account defined")
+						status = http.StatusBadRequest
+						return
+					}
+					if imp.Service.Subject == "" {
+						err = fmt.Errorf("Import must have service subject defined")
+						status = http.StatusBadRequest
+						return
+					}
+
 					acc := imp.Service.Account
 					if _, err = s.getAccountResource(acc); err != nil {
 						if os.IsNotExist(err) {
@@ -572,8 +583,17 @@ func (s *Server) HandleAccounts(w http.ResponseWriter, req *http.Request) {
 						return
 					}
 				case hasStream:
-					// TODO: Bad request, account was not defined
-					// TODO: Bad request, subject was not defined
+					if imp.Stream.Account == "" {
+						err = fmt.Errorf("Import must have stream account defined")
+						status = http.StatusBadRequest
+						return
+					}
+					if imp.Stream.Subject == "" {
+						err = fmt.Errorf("Import must have stream subject defined")
+						status = http.StatusBadRequest
+						return
+					}
+
 					acc := imp.Stream.Account
 					if _, err = s.getAccountResource(acc); err != nil {
 						if os.IsNotExist(err) {
