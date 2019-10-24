@@ -518,7 +518,11 @@ func (s *Server) HandleAccounts(w http.ResponseWriter, req *http.Request) {
 		//   other account.
 		//
 
-		// TODO: Bad request, prevent defining users in the payload.
+		if len(a.Users) > 0 {
+			err = fmt.Errorf("Users are not allowed to be defined in payload")
+			status = http.StatusBadRequest
+			return
+		}
 
 		// Verify imports and exports and prevent bad requests.
 		hasExports := a.Exports != nil
