@@ -619,7 +619,26 @@ func (s *Server) HandleAccounts(w http.ResponseWriter, req *http.Request) {
 		}
 		fmt.Fprintf(w, "OK\n")
 	case "GET":
-		// TODO:
+		s.log.Debugf("Retrieving account resource %q", name)
+		if name == "" {
+			err = fmt.Errorf("Account name required for GET")
+			status = http.StatusBadRequest
+			return
+		}
+
+		var resource *api.Account
+		resource, err = s.getAccountResource(name)
+		if err != nil {
+			status = http.StatusInternalServerError
+			return
+		}
+		var payload []byte
+		payload, err = resource.AsJSON()
+		if err != nil {
+			status = http.StatusInternalServerError
+			return
+		}
+		fmt.Fprint(w, string(payload))
 	}
 }
 
