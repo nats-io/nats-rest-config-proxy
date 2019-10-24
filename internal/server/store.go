@@ -68,6 +68,12 @@ func (s *Server) getAccountResource(name string) (u *api.Account, err error) {
 	return
 }
 
+// deleteAccountResource deletes an account resource from a file.
+func (s *Server) deleteAccountResource(name string) error {
+	path := filepath.Join(s.resourcesDir(), "accounts", fmt.Sprintf("%s.json", name))
+	return os.Remove(path)
+}
+
 // getPermissionResource reads a permissions resource from a file
 // then returns a set of permissions.
 func (s *Server) getPermissionResource(name string) (u *api.Permissions, err error) {

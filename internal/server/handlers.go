@@ -639,6 +639,42 @@ func (s *Server) HandleAccounts(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		fmt.Fprint(w, string(payload))
+	case "DELETE":
+		s.log.Debugf("Deleting account resource %q", name)
+		if name == "" {
+			err = fmt.Errorf("Account name required for DELETE")
+			status = http.StatusBadRequest
+			return
+		}
+
+		// Confirm that no user is using this resource.
+		var users []*api.User
+		users, err = s.getUsers()
+		if err != nil {
+			status = http.StatusInternalServerError
+			return
+		}
+		for _, u := range users {
+			if u.Account == name {
+				err = fmt.Errorf("User %q is using account %q", u.Username, name)
+				status = http.StatusConflict
+				return
+			}
+		}
+
+		err = s.deleteAccountResource(name)
+		if err != nil {
+			if os.IsNotExist(err) {
+				status = http.StatusNotFound
+			} else {
+				status = http.StatusInternalServerError
+			}
+			return
+		}
+		fmt.Fprintf(w, "Deleted permission resource %q", name)
+	default:
+		status = http.StatusMethodNotAllowed
+		err = fmt.Errorf("%s is not allowed on %q", req.Method, req.URL.Path)
 	}
 }
 
