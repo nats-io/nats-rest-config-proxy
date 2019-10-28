@@ -621,8 +621,26 @@ func (s *Server) HandleAccounts(w http.ResponseWriter, req *http.Request) {
 	case "GET":
 		s.log.Debugf("Retrieving account resource %q", name)
 		if name == "" {
-			err = fmt.Errorf("Account name required for GET")
-			status = http.StatusBadRequest
+			// If name == "", then URL is a GET request on an entire
+			// collection.
+			var resources []*api.Account
+			resources, err = s.getAllAccountResources()
+			if err != nil {
+				status = http.StatusInternalServerError
+				return
+			}
+
+			var objs []string
+			var js []byte
+			for _, r := range resources {
+				js, err = r.AsJSON()
+				if err != nil {
+					status = http.StatusInternalServerError
+					return
+				}
+				objs = append(objs, string(js))
+			}
+			fmt.Fprintf(w, "[%v]\n", strings.Join(objs, ","))
 			return
 		}
 

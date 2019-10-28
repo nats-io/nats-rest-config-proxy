@@ -54,6 +54,40 @@ func (s *Server) storeAccountResource(name string, account *api.Account) error {
 	return ioutil.WriteFile(path, payload, 0666)
 }
 
+// getAllAccountResources reads all account resource files.
+func (s *Server) getAllAccountResources() ([]*api.Account, error) {
+	root := filepath.Join(s.resourcesDir(), "accounts")
+	var accounts []*api.Account
+
+	err := filepath.Walk(root, func(p string, fi os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if filepath.Ext(p) != ".json" {
+			// Not an account file, skip.
+			return nil
+		}
+
+		data, err := ioutil.ReadFile(p)
+		if err != nil {
+			return err
+		}
+
+		var a *api.Account
+		if err := json.Unmarshal(data, &a); err != nil {
+			return err
+		}
+		accounts = append(accounts, a)
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return accounts, nil
+}
+
 // getAccountResource reads an account resource from a file.
 func (s *Server) getAccountResource(name string) (u *api.Account, err error) {
 	path := filepath.Join(s.resourcesDir(), "accounts", fmt.Sprintf("%s.json", name))
