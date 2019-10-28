@@ -619,7 +619,9 @@ func (s *Server) HandleAccounts(w http.ResponseWriter, req *http.Request) {
 						return
 					}
 				default:
-					panic("unreachable")
+					err = fmt.Errorf("Import is missing services or streams")
+					status = http.StatusBadRequest
+					return
 				}
 			}
 		}
@@ -654,14 +656,19 @@ func (s *Server) HandleAccounts(w http.ResponseWriter, req *http.Request) {
 				}
 				objs = append(objs, string(js))
 			}
-			fmt.Fprintf(w, "[%v]\n", strings.Join(objs, ","))
+			fmt.Fprintf(w, "[%v]", strings.Join(objs, ","))
 			return
 		}
 
 		var resource *api.Account
 		resource, err = s.getAccountResource(name)
 		if err != nil {
-			status = http.StatusInternalServerError
+			if os.IsNotExist(err) {
+				err = fmt.Errorf("Account %q does not exist", name)
+				status = http.StatusBadRequest
+			} else {
+				status = http.StatusInternalServerError
+			}
 			return
 		}
 		var payload []byte

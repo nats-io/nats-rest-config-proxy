@@ -663,7 +663,7 @@ func TestPermsList(t *testing.T) {
 	waitServerIsReady(t, ctx, s)
 
 	host := fmt.Sprintf("http://%s:%d", s.opts.Host, s.opts.Port)
-	payload := `{ 
+	payload := `{
           "publish":   { "allow": ["hello", "world"] },
           "subscribe": { "allow": ["public.>"], "deny": ["private.>"] }
         }`
@@ -675,7 +675,7 @@ func TestPermsList(t *testing.T) {
 		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
 	}
 
-	payload = `{ 
+	payload = `{
           "publish":   { "allow": [">"] },
           "subscribe": { "allow": [">"] }
         }`
@@ -826,7 +826,7 @@ func TestGetSinglePermission(t *testing.T) {
 	waitServerIsReady(t, ctx, s)
 
 	host := fmt.Sprintf("http://%s:%d", s.opts.Host, s.opts.Port)
-	payload := `{ 
+	payload := `{
           "publish":   { "allow": ["hello", "world"] },
           "subscribe": { "allow": ["public.>"], "deny": ["private.>"] }
         }`
@@ -838,7 +838,7 @@ func TestGetSinglePermission(t *testing.T) {
 		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
 	}
 
-	payload = `{ 
+	payload = `{
           "publish":   { "allow": [">"] },
           "subscribe": { "allow": [">"] }
         }`
@@ -1520,6 +1520,63 @@ func TestAccountsHandler(t *testing.T) {
 `
 		got := string(contents)
 		if got != expected {
+			t.Errorf("Expected: %+v\nGot: %+v", expected, got)
+		}
+	})
+
+	t.Run("get all accounts", func(t *testing.T) {
+		resp, body, err := curl("GET", host+"/v1/auth/accounts/", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != 200 {
+			t.Errorf("Expected OK, got: %v", resp.StatusCode)
+		}
+
+		expected := `[{
+  "exports": [
+    {
+      "stream": "bar.public.>",
+      "accounts": [
+        "foo"
+      ]
+    }
+  ]
+}
+,{
+  "exports": [
+    {
+      "stream": "foo.public.>"
+    },
+    {
+      "service": "foo.api"
+    }
+  ]
+}
+,{
+  "imports": [
+    {
+      "stream": {
+        "account": "foo",
+        "subject": "foo.public.>"
+      }
+    }
+  ]
+}
+,{
+  "imports": [
+    {
+      "service": {
+        "account": "foo",
+        "subject": "foo.api"
+      }
+    }
+  ]
+}
+]`
+		got := string(body)
+		if got != expected {
+			t.Errorf("got %d : want %d", len(got), len(expected))
 			t.Errorf("Expected: %+v\nGot: %+v", expected, got)
 		}
 	})
