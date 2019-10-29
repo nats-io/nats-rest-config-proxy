@@ -602,3 +602,188 @@ func TestFullCycleWithAccounts(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestFullCycleWithAccountsImportsExports(t *testing.T) {
+	// Create a data directory.
+	opts := DefaultOptions()
+	opts.DataDir = "./data-accounts-imports"
+	s := server.NewServer(opts)
+	host := fmt.Sprintf("http://%s:%d", opts.Host, opts.Port)
+	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	time.AfterFunc(2*time.Second, func() {
+		s.Shutdown(ctx)
+		waitServerIsDone(t, ctx, host)
+	})
+	done := make(chan struct{})
+	go func() {
+		s.Run(ctx)
+		done <- struct{}{}
+	}()
+	waitServerIsReady(t, ctx, host)
+
+	// Need to create the accounts first, use an empty JSON payload to create them.
+	resp, _, err := curl("PUT", host+"/v1/auth/accounts/foo", []byte(`{
+          "exports": [
+            { "stream": "foo.public.>" },
+            { "service": "foo.api" }
+          ]
+        }`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+	resp, _, err = curl("PUT", host+"/v1/auth/accounts/quux", []byte(`{
+          "imports": [
+            { "stream": {"account": "foo", "subject": "foo.public.>" }, "prefix": "from" },
+            { "service": {"account": "foo", "subject": "foo.api" }, "to": "from.foo.api" }
+          ]
+        }`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Create a couple of users
+	payload := `{
+	  "username": "foo-user",
+	  "password": "secret",
+          "permissions": "normal-user",
+          "account": "foo"
+	}`
+	resp, _, err = curl("PUT", host+"/v1/auth/idents/foo-user", []byte(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	payload = `{
+	  "username": "quux-user",
+	  "password": "secret",
+          "permissions": "normal-user",
+          "account": "quux"
+	}`
+	resp, _, err = curl("PUT", host+"/v1/auth/idents/quux-user", []byte(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Create a snapshot.
+	resp, _, err = curl("POST", host+"/v2/auth/snapshot?name=with-accounts", []byte(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Publish a named snapshot.
+	resp, _, err = curl("POST", host+"/v2/auth/publish?name=with-accounts", []byte(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timed out waiting for server to stop")
+	}
+
+	config := `
+          # Load the generated accounts.
+          include "accounts/auth.conf"
+        `
+
+	err = ioutil.WriteFile("./data-accounts-imports/current/main.conf", []byte(config), 0666)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	natsd, _ := gnatsd.RunServerWithConfig("./data-accounts-imports/current/main.conf")
+	if natsd == nil {
+		t.Fatal("Unexpected error starting a configured NATS server")
+	}
+	defer natsd.Shutdown()
+
+	errCh := make(chan error, 2)
+	ncA, err := nats.Connect("nats://foo-user:secret@127.0.0.1:4222",
+		nats.ErrorHandler(func(_ *nats.Conn, _ *nats.Subscription, err error) {
+			errCh <- err
+		}),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ncA.Close()
+	go func() {
+		for range time.NewTicker(100 * time.Millisecond).C {
+			if !ncA.IsConnected() {
+				return
+			}
+			ncA.Publish("foo.public.foo", []byte("hello"))
+		}
+	}()
+	ncA.Flush()
+
+	ncB, err := nats.Connect("nats://quux-user:secret@127.0.0.1:4222",
+		nats.ErrorHandler(func(_ *nats.Conn, _ *nats.Subscription, err error) {
+			errCh <- err
+		}),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ncB.Close()
+
+	ncC, err := nats.Connect("nats://quux-user:secret@127.0.0.1:4222",
+		nats.ErrorHandler(func(_ *nats.Conn, _ *nats.Subscription, err error) {
+			errCh <- err
+		}),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ncC.Close()
+
+	sub, err := ncB.SubscribeSync(">")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ncB.Flush()
+
+	msg, err := sub.NextMsg(1 * time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := msg.Subject
+	expected := "from.foo.public.foo"
+	if expected != got {
+		t.Fatalf("Expected %+v, got: %+v", expected, got)
+	}
+
+	ncA.Subscribe("foo.api", func(m *nats.Msg) {
+		m.Respond([]byte("PONG"))
+	})
+	ncA.Flush()
+
+	msg, err = ncB.Request("from.foo.api", []byte("hi"), time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got = string(msg.Data)
+	expected = "PONG"
+	if got != expected {
+		t.Fatalf("Expected %+v, got: %+v", expected, got)
+	}
+}

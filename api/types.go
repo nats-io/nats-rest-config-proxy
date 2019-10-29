@@ -118,16 +118,16 @@ type Export struct {
 
 // Import
 type Import struct {
-	Service *GenericImport `json:"service,omitempty"`
-	Stream  *GenericImport `json:"stream,omitempty"`
+	Service      *GenericImport `json:"service,omitempty"`
+	Stream       *GenericImport `json:"stream,omitempty"`
+	StreamPrefix string         `json:"prefix,omitempty"`
+	ServiceTo    string         `json:"to,omitempty"`
 }
 
 // GenericImport
 type GenericImport struct {
-	Account      string `json:"account,omitempty"`
-	Subject      string `json:"subject,omitempty"`
-	StreamPrefix string `json:"prefix,omitempty"`
-	ServiceTo    string `json:"to,omitempty"`
+	Account string `json:"account,omitempty"`
+	Subject string `json:"subject,omitempty"`
 }
 
 // AuthConfig represents the complete authorization config

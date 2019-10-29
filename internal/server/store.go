@@ -458,7 +458,7 @@ func (s *Server) buildConfigSnapshotV2(snapshotName string) error {
 			Users: users,
 		}
 
-		u, err := json.MarshalIndent(gusers, "", " ")
+		u, err := marshalIndent(gusers)
 		if err != nil {
 			return err
 		}
