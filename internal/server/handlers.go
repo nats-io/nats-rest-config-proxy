@@ -717,6 +717,61 @@ func (s *Server) HandleAccounts(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// HandleSnapshotV2
+func (s *Server) HandleSnapshotV2(w http.ResponseWriter, req *http.Request) {
+	var (
+		size   int
+		status int = http.StatusOK
+		err    error
+	)
+	defer func() {
+		s.processErr(err, status, w, req)
+		s.log.traceRequest(req, size, status, time.Now())
+	}()
+
+	err = s.verifyAuth(w, req)
+	if err != nil {
+		status = http.StatusUnauthorized
+		return
+	}
+
+	name := req.URL.Query().Get("name")
+	if name == "" {
+		name = DefaultSnapshotName
+	} 
+
+	switch req.Method {
+	case "POST":
+		s.log.Infof("Building latest config...")
+		err = s.buildConfigSnapshotV2(name)
+		if err != nil {
+			status = http.StatusInternalServerError
+			return
+		}
+		s.log.Infof("Creating config from snapshot %q", name)
+
+		fmt.Fprintf(w, "Configuration published\n")
+	case "GET":
+		status = http.StatusMethodNotAllowed
+		err = fmt.Errorf("%s is not allowed on %q", req.Method, req.URL.Path)
+	case "DELETE":
+		s.log.Infof("Deleting config snapshot %q", name)
+		err = s.deleteConfigSnapshotV2(name)
+		if err != nil {
+			if os.IsNotExist(err) {
+				status = http.StatusNotFound
+			} else {
+				status = http.StatusInternalServerError
+			}
+			return
+		}
+		fmt.Fprintf(w, "OK\n")
+	default:
+		status = http.StatusMethodNotAllowed
+		err = fmt.Errorf("%s is not allowed on %q", req.Method, req.URL.Path)
+	}
+}
+
 // HandlePublishV2
 func (s *Server) HandlePublishV2(w http.ResponseWriter, req *http.Request) {
 	var (
@@ -748,6 +803,34 @@ func (s *Server) HandlePublishV2(w http.ResponseWriter, req *http.Request) {
 			}
 		} else {
 			s.log.Infof("Creating config from snapshot %q", name)
+		}
+
+		err = s.publishConfigSnapshotV2(name)
+		if err != nil {
+			status = http.StatusInternalServerError
+			return
+		}
+
+		s.mu.Lock()
+		script := s.opts.PublishScript
+		s.mu.Unlock()
+
+		if script != "" {
+			// Change the cwd of the command to location of the script.
+			var stdout, stderr bytes.Buffer
+			cmd := exec.Command(script)
+			cmd.Dir = filepath.Dir(script)
+			cmd.Stdout = &stdout
+			cmd.Stderr = &stderr
+
+			s.log.Infof("Executing publish script %q", script)
+			err = cmd.Run()
+			s.log.Tracef("STDOUT: %s", stdout.String())
+			s.log.Tracef("STDERR: %s", stdout.String())
+			if err != nil {
+				status = http.StatusInternalServerError
+				return
+			}
 		}
 
 		fmt.Fprintf(w, "Configuration published\n")

@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -261,9 +262,28 @@ func (s *Server) getConfigSnapshot(name string) ([]byte, error) {
 	return ioutil.ReadFile(path)
 }
 
+// publishConfigSnapshotV2
+func (s *Server) publishConfigSnapshotV2(name string) error {
+	from := filepath.Join(s.snapshotsDir(), name)
+	to := filepath.Join(s.currentConfigDir(), "accounts")
+
+	// First remove the contents of the folder in case there is anything.
+	err := os.RemoveAll(to)
+	if err != nil {
+		return err
+	}
+	cmd := exec.Command("cp", "-rf", from, to)
+	return cmd.Run()
+}
+
 func (s *Server) deleteConfigSnapshot(name string) error {
 	path := filepath.Join(s.snapshotsDir(), fmt.Sprintf("%s.json", name))
 	return os.Remove(path)
+}
+
+func (s *Server) deleteConfigSnapshotV2(name string) error {
+	snapDir := filepath.Join(s.snapshotsDir(), name)
+	return os.RemoveAll(snapDir)
 }
 
 // buildConfigSnapshot will create the configuration with the users and permission
@@ -429,7 +449,26 @@ func (s *Server) buildConfigSnapshotV2(snapshotName string) error {
 	}
 
 	// Create the include file
-	authIncludes := fmt.Sprintf("accounts\n{%s\n}\n", authContent)
+	var authIncludes string
+	if len(users) > 0 {
+		type globalUsersConfig struct {
+			Users []*api.ConfigUser `json:"users"`
+		}
+		gusers := &globalUsersConfig{
+			Users: users,
+		}
+
+		u, err := json.MarshalIndent(gusers, "", " ")
+		if err != nil {
+			return err
+		}
+		err = s.storeAccountSnapshot(snapshotName, "global", u)
+		if err != nil {
+			return err
+		}
+	}
+
+	authIncludes += fmt.Sprintf("accounts {\n%s\n}\n", authContent)
 	err = s.storeSnapshotConfigV2(snapshotName, []byte(authIncludes))
 	if err != nil {
 		return err
