@@ -378,8 +378,8 @@ func TestFullCycleWithAccounts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resp.StatusCode != 400 {
-		t.Fatalf("Expected BadRequest, got: %v", resp.StatusCode)
+	if resp.StatusCode != 404 {
+		t.Fatalf("Expected Not found, got: %v", resp.StatusCode)
 	}
 
 	// Create a couple of users

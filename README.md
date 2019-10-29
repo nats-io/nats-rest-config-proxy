@@ -115,34 +115,37 @@ Note:  To test locally, you'll need to add a hostname into your `/etc/hosts` fil
 The NATS configuration proxy will return the following error codes:
 
 * 200 OK - success
+* 400 Bad Request - Invalid API request
 * 404 Not Found - resource was not found
 * 405 Method Not Allowed - unsupported operation
 * 409 Conflict -  the operation cannot be completed as a dependency will
 create an invalid configuration.
 
-| Resource            | GET                                  | POST | PUT               | DELETE                  |
-|---------------------|--------------------------------------|------|-------------------|-------------------------|
-| /auth/idents        | Get list of identities               | 405  | 405               | Delete all permissions  |
-| /auth/idents/(name) | Get specific identity w/ permissions | 405  | Update identity   | Delete named identity   |  
-| /auth/perms         | Get list of named permissions sets   | 405  | Create Permission | Delete all permissions  |
-| /auth/perms/(name)  | Get specific permission set          | 405  | Update Permission | Delete names permission |
+Resource              | GET                                  | POST | PUT                    | DELETE
+-------------------------|--------------------------------------|------|------------------------|------------------------
+/v1/auth/idents          | Get list of identities               | 405  | 405                    | Delete all permissions
+/v1/auth/idents/(name)   | Get specific identity w/ permissions | 405  | Create/Update Identity | Delete named identity
+/v1/auth/perms           | Get list of named permissions sets   | 405  | 405                    | Delete all permissions
+/v1/auth/perms/(name)    | Get specific permission set          | 405  | Update Permission      | Delete named permission
+/v1/auth/accounts        | Get list of accounts                 | 405  | 405                    | 400
+/v1/auth/accounts/(name) | Get specific account                 | 405  | Create/Update Account  | Delete named account
 
 ### Identity Add/Update Payload
 
 ```text
-{“username”: “alice“, “password“: “foo”}
+{"username": "alice", "password": "foo"}
 ```
 
 NKEY:
 
 ```text
-{“nkey“ : “UC6NLCN7AS34YOJVCYD4PJ3QB7QGLYG5B5IMBT25VW5K4TNUJODM7BOX”}
+{"nkey" : "UC6NLCN7AS34YOJVCYD4PJ3QB7QGLYG5B5IMBT25VW5K4TNUJODM7BOX"}
 ```
 
 Certificate subject attributes with permissions:
 
 ```text
-{“username“ : “CN=rt01.axon.sa.sandbox03.dev.mastercard.int,OU=SCSS”, “permissions” : “normal_user”}
+{"username" : "CN=rt01.axon.sa.sandbox03.dev.mastercard.int,OU=SCSS", "permissions" : "normal_user"}
 ```
 
 ### Permission add/update payload
@@ -151,26 +154,29 @@ Certificate subject attributes with permissions:
   "normal_user" : {
     # Can send to foo, bar or baz only.
     "publish" : {
-      “allow” : ["foo", "bar", "baz"]
+      "allow" : ["foo", "bar", "baz"]
     }
     # Can subscribe to everything but $SYSTEM prefixed subjects.
-    “subscribe” : {
-      “deny” : ["$SYSTEM.>"]
+    "subscribe" : {
+      "deny" : ["$SYSTEM.>"]
     }
   }
 ```
 
 ### Commands
 
-| Command                 | GET | POST | PUT                    | DELETE |
-|-------------------------|-----|------|------------------------|--------|
-| /healthz                | 200 | 405  | 405                    | 405    |
-| /auth/snapshot?name=foo | 405 | snapshot current config  | 405       | deletes named snapshot    |  
-| /auth/publish?name=foo  | 405 |  Saves / invokes script  | 405 | 405    |
+Command                    | GET | POST                    | PUT | DELETE
+---------------------------|-----|-------------------------|-----|--------
+/healthz                   | 200 | 405                     | 405 | 405
+/v1/auth/snapshot?name=foo | 405 | snapshot current config | 405 | deletes named snapshot
+/v1/auth/publish?name=foo  | 405 | Saves / invokes script  | 405 | 405
+
+In addition to `/v1/auth/snapshot`, there is also `/v2/auth/snapshot` which is
+documented below in the v2.0 Accounts section.
 
 ### Examples
 
-#### Create a permission
+#### Create/update a permission
 
 ```bash
 curl -X PUT http://127.0.0.1:4567/v1/auth/perms/sample-user -d '{
@@ -189,12 +195,13 @@ curl -X PUT http://127.0.0.1:4567/v1/auth/perms/sample-user -d '{
 curl http://127.0.0.1:4567/v1/auth/perms/sample-user
 ```
 
-#### Create a user
+#### Create/update a user
 
 ```bash
 curl -X PUT http://127.0.0.1:4567/v1/auth/idents/sample-user -d '{
   "username": "sample-user",
   "password": "secret",
+  "account": "sample-account",
   "permissions": "sample-user"
 }'
 ```
@@ -203,6 +210,24 @@ curl -X PUT http://127.0.0.1:4567/v1/auth/idents/sample-user -d '{
 
 ```bash
 curl http://127.0.0.1:4567/v1/auth/idents/sample-user
+```
+
+#### Create/update an account
+
+```bash
+curl -X PUT http://127.0.0.1:4567/v1/auth/accounts/sample-account -d '{}'
+```
+
+#### Get an account
+
+```bash
+curl http://127.0.0.1:4567/v1/auth/accounts/sample-account
+```
+
+#### Delete an account
+
+```bash
+curl -X DELETE http://127.0.0.1:4567/v1/auth/accounts/sample-account
 ```
 
 #### Build snapshot
@@ -304,7 +329,7 @@ config
 And the published auth configuration will look like:
 
 ```js
-$ cat config/current/auth.json 
+$ cat config/current/auth.json
 {
   "users": [
     {
@@ -421,7 +446,7 @@ Example logs from the server:
 [6404] 2019/06/18 18:10:11.931113 [DBG] 127.0.0.1:55492 - cid:1 - Client connection closed
 ```
 
-## Using NATS v2.0 Accounts 
+## Using NATS v2.0 Accounts
 
 In this example, we will create a couple of users on different accounts.
 
@@ -463,6 +488,13 @@ curl -X PUT http://127.0.0.1:4567/v1/auth/perms/admin -d '{
 }'
 ```
 
+Let's create some accounts.
+
+```
+curl -X PUT http://127.0.0.1:4567/v1/auth/accounts/Bar
+curl -X PUT http://127.0.0.1:4567/v1/auth/accounts/Foo
+```
+
 Now that we have created the permissions, let's bind some users to these permissions:
 
 ```sh
@@ -498,23 +530,29 @@ curl -X PUT http://127.0.0.1:4567/v1/auth/idents/bar-2-user -d '{
 We now can create a named snapshot for this setup. Let's create one named `v1`:
 
 ```sh
-curl -X POST http://127.0.0.1:4567/v1/auth/snapshot?name=v1
+curl -X POST http://127.0.0.1:4567/v2/auth/snapshot?name=v1
 ```
 
 Then publish the configuration:
 
 ```sh
-curl -X POST http://127.0.0.1:4567/v1/auth/publish?name=v1
+curl -X POST http://127.0.0.1:4567/v2/auth/publish?name=v1
 ```
 
 At this point, we will have the following directory structure in the config directory:
 
 ```
-tree config
+$ tree config
 config
 ├── current
-│   └── auth.json
+│   └── accounts
+│       ├── auth.conf
+│       ├── Bar.json
+│       └── Foo.json
 ├── resources
+│   ├── accounts
+│   │   ├── Bar.json
+│   │   └── Foo.json
 │   ├── permissions
 │   │   ├── admin.json
 │   │   └── guest.json
@@ -524,103 +562,29 @@ config
 │       ├── foo-1-user.json
 │       └── foo-2-user.json
 └── snapshots
-    └── v1.json
+    └── v1
+        ├── auth.conf
+        ├── Bar.json
+        └── Foo.json
+
+8 directories, 14 files
 ```
 
 And the published auth configuration will look like:
 
 ```js
-$ cat config/current/auth.json 
-{
-  "users": [],
-  "accounts": {
-    "Bar": {
-      "users": [
-        {
-          "username": "bar-1-user",
-          "password": "bar-1-secret",
-          "permissions": {
-            "publish": {
-              "allow": [
-                "foo.*",
-                "bar.>"
-              ]
-            },
-            "subscribe": {
-              "deny": [
-                "quux"
-              ]
-            }
-          }
-        },
-        {
-          "username": "bar-2-user",
-          "password": "bar-2-secret",
-          "permissions": {
-            "publish": {
-              "allow": [
-                ">"
-              ]
-            },
-            "subscribe": {
-              "allow": [
-                ">"
-              ]
-            }
-          }
-        }
-      ]
-    },
-    "Foo": {
-      "users": [
-        {
-          "username": "foo-1-user",
-          "password": "foo-1-secret",
-          "permissions": {
-            "publish": {
-              "allow": [
-                "foo.*",
-                "bar.>"
-              ]
-            },
-            "subscribe": {
-              "deny": [
-                "quux"
-              ]
-            }
-          }
-        },
-        {
-          "username": "foo-2-user",
-          "password": "foo-2-secret",
-          "permissions": {
-            "publish": {
-              "allow": [
-                ">"
-              ]
-            },
-            "subscribe": {
-              "allow": [
-                ">"
-              ]
-            }
-          }
-        }
-      ]
-    }
-  }
+$ cat config/current/accounts/auth.conf
+accounts {
+  Bar { include 'Bar.json' }
+  Foo { include 'Foo.json' }
 }
 ```
 
-This configuration can now be included by a `nats-server` in order to define a couple of variables that can be used as follow:
+This configuration can now be included by a `nats-server` in order to define a
+couple of variables that can be used as follow:
 
 ```conf
-include "config/current/auth.json"
-
-authorization {
-  # Add users to the global account.
-  users = $users
-}
+include "config/current/accounts/auth.conf"
 
 # Create the users bound to different accounts.
 accounts = $accounts

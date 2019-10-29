@@ -550,7 +550,7 @@ func (s *Server) HandleAccounts(w http.ResponseWriter, req *http.Request) {
 					if _, err = s.getAccountResource(acc); err != nil {
 						if os.IsNotExist(err) {
 							err = fmt.Errorf("Account %q defined in export does not exist", acc)
-							status = http.StatusBadRequest
+							status = http.StatusNotFound
 						} else {
 							status = http.StatusInternalServerError
 						}
@@ -590,7 +590,7 @@ func (s *Server) HandleAccounts(w http.ResponseWriter, req *http.Request) {
 					if _, err = s.getAccountResource(acc); err != nil {
 						if os.IsNotExist(err) {
 							err = fmt.Errorf("Account %q defined in export does not exist", acc)
-							status = http.StatusBadRequest
+							status = http.StatusNotFound
 						} else {
 							status = http.StatusInternalServerError
 						}
@@ -612,7 +612,7 @@ func (s *Server) HandleAccounts(w http.ResponseWriter, req *http.Request) {
 					if _, err = s.getAccountResource(acc); err != nil {
 						if os.IsNotExist(err) {
 							err = fmt.Errorf("Account %q defined in export does not exist", acc)
-							status = http.StatusBadRequest
+							status = http.StatusNotFound
 						} else {
 							status = http.StatusInternalServerError
 						}
@@ -665,7 +665,7 @@ func (s *Server) HandleAccounts(w http.ResponseWriter, req *http.Request) {
 		if err != nil {
 			if os.IsNotExist(err) {
 				err = fmt.Errorf("Account %q does not exist", name)
-				status = http.StatusBadRequest
+				status = http.StatusNotFound
 			} else {
 				status = http.StatusInternalServerError
 			}
