@@ -143,6 +143,26 @@ func (s *Server) getPermissions() (map[string]*api.Permissions, error) {
 	return permissions, nil
 }
 
+// getAccounts returns a set of accounts.
+func (s *Server) getAccounts() (map[string]*api.Account, error) {
+	accounts := make(map[string]*api.Account)
+	files, err := ioutil.ReadDir(filepath.Join(s.resourcesDir(), "accounts"))
+	if err != nil {
+		return nil, err
+	}
+	for _, f := range files {
+		basename := f.Name()
+		name := strings.TrimSuffix(basename, filepath.Ext(basename))
+
+		acc, err := s.getAccountResource(name)
+		if err != nil {
+			return nil, err
+		}
+		accounts[name] = acc
+	}
+	return accounts, nil
+}
+
 // getUsers returns a set of users.
 func (s *Server) getUsers() ([]*api.User, error) {
 	users := make([]*api.User, 0)
@@ -325,14 +345,122 @@ func (s *Server) buildConfigSnapshot(name string) error {
 	return nil
 }
 
+// buildConfigSnapshotV2 will create the configuration with the users and permission
+// including the accounts.
+func (s *Server) buildConfigSnapshotV2(snapshotName string) error {
+	// Load permissions map for the users
+	permissions, err := s.getPermissions()
+	if err != nil {
+		return err
+	}
+
+	// Load each one of the accounts, then we will lookup the
+	// users to belong to each account.
+	accounts, err := s.getAccounts()
+	if err != nil {
+		return err
+	}
+
+	// Reduce the users into the account, then explode the accounts
+	// by iterating at the end.
+	files, err := ioutil.ReadDir(filepath.Join(s.resourcesDir(), "users"))
+	if err != nil {
+		return err
+	}
+
+	users := make([]*api.ConfigUser, 0)
+	for _, f := range files {
+		basename := f.Name()
+		name := strings.TrimSuffix(basename, filepath.Ext(basename))
+		u, err := s.getUserResource(name)
+		if err != nil {
+			return err
+		}
+		p, ok := permissions[u.Permissions]
+		if !ok {
+			s.log.Warnf("User %q will use default permissions", u.Username)
+		}
+		user := &api.ConfigUser{
+			Permissions: p,
+		}
+		if u.Username != "" {
+			user.Username = u.Username
+		}
+		if u.Nkey != "" {
+			user.Nkey = u.Nkey
+		}
+		if u.Password != "" {
+			user.Password = u.Password
+		}
+
+		if u.Account != "" {
+			account, ok := accounts[u.Account]
+			if !ok {
+				fmt.Println("account does not exist!", u.Account)
+				continue
+			}
+			// Add the user to the account.
+			account.Users = append(account.Users, user)
+		} else {
+			users = append(users, user)
+		}
+	}
+
+	// Create directory for this snapshot if not present and
+	// write a file for each one of the accounts that is
+	// later referenced as an include.
+	snapDir := filepath.Join(s.snapshotsDir(), snapshotName)
+	if err := os.MkdirAll(snapDir, 0755); err != nil {
+		return err
+	}
+
+	var authContent string
+	for accName, account := range accounts {
+		// Store each one of the accounts here.
+		acc, err := account.AsJSON()
+		if err != nil {
+			return err
+		}
+		err = s.storeAccountSnapshot(snapshotName, accName, acc)
+		if err != nil {
+			return err
+		}
+		authContent += fmt.Sprintf("  %s { include '%s.json' }\n", accName, accName)
+	}
+
+	// Create the include file
+	authIncludes := fmt.Sprintf("accounts\n{%s\n}\n", authContent)
+	err = s.storeSnapshotConfigV2(snapshotName, []byte(authIncludes))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (s *Server) storeSnapshot(name string, payload []byte) error {
 	path := filepath.Join(s.snapshotsDir(), fmt.Sprintf("%s.json", name))
 	return ioutil.WriteFile(path, payload, 0666)
 }
 
+func (s *Server) storeSnapshotConfigV2(name string, payload []byte) error {
+	path := filepath.Join(s.snapshotsDir(), name, "auth.conf")
+	return ioutil.WriteFile(path, payload, 0666)
+}
+
+func (s *Server) storeConfigV2(data []byte) error {
+	path := filepath.Join(s.currentConfigDir(), "auth.conf")
+	return ioutil.WriteFile(path, data, 0666)
+}
+
 func (s *Server) storeConfig(data []byte) error {
 	path := filepath.Join(s.currentConfigDir(), "auth.json")
 	return ioutil.WriteFile(path, data, 0666)
+}
+
+func (s *Server) storeAccountSnapshot(snapshotName string, accName string, payload []byte) error {
+	path := filepath.Join(s.snapshotsDir(), snapshotName, fmt.Sprintf("%s.json", accName))
+	return ioutil.WriteFile(path, payload, 0666)
 }
 
 func (s *Server) getCurrentConfig() ([]byte, error) {

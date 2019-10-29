@@ -717,6 +717,46 @@ func (s *Server) HandleAccounts(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// HandlePublishV2
+func (s *Server) HandlePublishV2(w http.ResponseWriter, req *http.Request) {
+	var (
+		size   int
+		status int = http.StatusOK
+		err    error
+	)
+	defer func() {
+		s.processErr(err, status, w, req)
+		s.log.traceRequest(req, size, status, time.Now())
+	}()
+
+	err = s.verifyAuth(w, req)
+	if err != nil {
+		status = http.StatusUnauthorized
+		return
+	}
+
+	switch req.Method {
+	case "POST":
+		name := req.URL.Query().Get("name")
+		if name == "" {
+			s.log.Infof("Building latest config...")
+			name = DefaultSnapshotName
+			err = s.buildConfigSnapshotV2(name)
+			if err != nil {
+				status = http.StatusInternalServerError
+				return
+			}
+		} else {
+			s.log.Infof("Creating config from snapshot %q", name)
+		}
+
+		fmt.Fprintf(w, "Configuration published\n")
+	default:
+		status = http.StatusMethodNotAllowed
+		err = fmt.Errorf("%s is not allowed on %q", req.Method, req.URL.Path)
+	}
+}
+
 // HandleHealthz handles healthz.
 func (s *Server) HandleHealthz(w http.ResponseWriter, req *http.Request) {
 	var (

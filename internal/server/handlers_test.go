@@ -1241,7 +1241,7 @@ func TestAccountsHandler(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(s.opts.DataDir)
+	// defer os.RemoveAll(s.opts.DataDir)
 
 	ctx, done := context.WithTimeout(context.Background(), 2*time.Second)
 	defer done()
@@ -1580,4 +1580,13 @@ func TestAccountsHandler(t *testing.T) {
 			t.Errorf("Expected: %+v\nGot: %+v", expected, got)
 		}
 	})
+
+	// Publish with the new structure		
+	resp, _, err := curl("POST", host+"/v2/auth/publish", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Errorf("Expected OK, got: %v", resp.StatusCode)
+	}
 }
