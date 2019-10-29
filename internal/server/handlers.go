@@ -468,6 +468,10 @@ func (s *Server) HandleIdents(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+func hasWildcard(s string) bool {
+	return strings.Contains(s, ">") || strings.Contains(s, "*")
+}
+
 // HandleAccounts
 func (s *Server) HandleAccounts(w http.ResponseWriter, req *http.Request) {
 	var (
@@ -536,6 +540,11 @@ func (s *Server) HandleAccounts(w http.ResponseWriter, req *http.Request) {
 					status = http.StatusBadRequest
 					return
 				}
+				if hasWildcard(exp.Service) {
+					err = fmt.Errorf("Export service subject must not have a wildcard")
+					status = http.StatusBadRequest
+					return
+				}
 
 				for _, acc := range exp.Accounts {
 					if _, err = s.getAccountResource(acc); err != nil {
@@ -568,6 +577,11 @@ func (s *Server) HandleAccounts(w http.ResponseWriter, req *http.Request) {
 					}
 					if imp.Service.Subject == "" {
 						err = fmt.Errorf("Import must have service subject defined")
+						status = http.StatusBadRequest
+						return
+					}
+					if hasWildcard(imp.Service.Subject) {
+						err = fmt.Errorf("Import service subject must not have a wildcard")
 						status = http.StatusBadRequest
 						return
 					}
