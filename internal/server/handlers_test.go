@@ -1405,16 +1405,23 @@ func TestAccountsHandler(t *testing.T) {
 
 	// Create a user in each of the accounts.
 	t.Run("publishing with multiple users using v1 endpoint", func(t *testing.T) {
-		accounts := []string{"foo", "bar", "quux", "quuz"}
+		accounts := []string{"foo", "bar", "quux", "quuz", ""}
 		for _, acc := range accounts {
+			var username string
+			if acc == "" {
+				username = "global-user"
+			} else {
+				username = fmt.Sprintf("%s-user", acc)
+			}
+
 			payload := `{
-                          "username": "%s-user",
+                          "username": "%s",
                           "password": "secret",
                           "account": "%s"
                         }`
-			payload = fmt.Sprintf(payload, acc, acc)
+			payload = fmt.Sprintf(payload, username, acc)
 
-			endpoint := fmt.Sprintf("%s/v1/auth/idents/%s-user", host, acc)
+			endpoint := fmt.Sprintf("%s/v1/auth/idents/%s", host, username)
 			resp, _, err := curl("PUT", endpoint, []byte(payload))
 			if err != nil {
 				t.Fatal(err)
@@ -1449,7 +1456,12 @@ func TestAccountsHandler(t *testing.T) {
 			t.Fatal(err)
 		}
 		expected := `{
-  "users": [],
+  "users": [
+    {
+      "username": "global-user",
+      "password": "secret"
+    }
+  ],
   "accounts": {
     "bar": {
       "users": [
@@ -1580,4 +1592,37 @@ func TestAccountsHandler(t *testing.T) {
 			t.Errorf("Expected: %+v\nGot: %+v", expected, got)
 		}
 	})
+
+	// Publish and snapshot with the new structure
+	resp, _, err := curl("POST", host+"/v2/auth/snapshot?name=new", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Errorf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	resp, _, err = curl("POST", host+"/v2/auth/publish?name=new", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Errorf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	resp, _, err = curl("DELETE", host+"/v2/auth/snapshot?name=new", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Errorf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	resp, _, err = curl("POST", host+"/v2/auth/publish", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Errorf("Expected OK, got: %v", resp.StatusCode)
+	}
 }
