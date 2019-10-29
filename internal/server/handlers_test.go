@@ -1589,3 +1589,104 @@ func TestAccountsHandler(t *testing.T) {
 		t.Errorf("Expected OK, got: %v", resp.StatusCode)
 	}
 }
+
+func TestPublishHandlerV2(t *testing.T) {
+	s, err := newTestServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.opts.PublishScript = filepath.Join(s.opts.DataDir, "publish.sh")
+
+	script := `#!/bin/sh
+echo 'Publishing script...' > ./artifact2.log
+`
+	err = ioutil.WriteFile(s.opts.PublishScript, []byte(script), 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer os.RemoveAll(s.opts.DataDir)
+
+	ctx, done := context.WithTimeout(context.Background(), 2*time.Second)
+	defer done()
+	go s.Run(ctx)
+	defer func() {
+		s.Shutdown(ctx)
+		waitServerIsDone(t, ctx, s)
+	}()
+
+	waitServerIsReady(t, ctx, s)
+
+	host := fmt.Sprintf("http://%s:%d", s.opts.Host, s.opts.Port)
+	createFixtures(t, host)
+
+	// Publish the config
+	resp, _, err := curl("POST", host+"/v2/auth/publish", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	result, err := ioutil.ReadFile(filepath.Join(s.opts.DataDir, "current", "accounts", "global.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+
+        expected := `{
+  "users": [
+    {
+      "username": "first-user",
+      "password": "secret",
+      "permissions": {
+        "publish": {
+          "allow": [
+            "foo.*",
+            "bar.>"
+          ]
+        },
+        "subscribe": {
+          "deny": [
+            "quux"
+          ]
+        }
+      }
+    },
+    {
+      "username": "second-user",
+      "password": "secret",
+      "permissions": {
+        "publish": {
+          "allow": [
+            "foo.*",
+            "bar.>"
+          ]
+        },
+        "subscribe": {
+          "deny": [
+            "quux"
+          ]
+        }
+      }
+    }
+  ]
+}
+`
+	got := string(result)
+	if got != expected {
+		t.Errorf("Expected: %q\nGot: %q", expected, got)
+	}
+
+	// Confirm that the publish script was executed
+	result, err = ioutil.ReadFile(filepath.Join(s.opts.DataDir, "artifact2.log"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got = string(result)
+	expected = "Publishing script...\n"
+	if got != expected {
+		t.Fatalf("Expected: %s, got: %s", expected, got)
+	}
+}
