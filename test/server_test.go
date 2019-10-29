@@ -3,6 +3,7 @@ package test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -282,6 +283,105 @@ func TestFullCycleWithAccounts(t *testing.T) {
 	}()
 	waitServerIsReady(t, ctx, host)
 
+	// Need to create the accounts first, use an empty JSON payload to create them.
+	resp, _, err := curl("PUT", host+"/v1/auth/accounts/foo", []byte("{}"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+	resp, _, err = curl("PUT", host+"/v1/auth/accounts/bar", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+	resp, _, err = curl("PUT", host+"/v1/auth/accounts/fizz", []byte("{}"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Block defining users in payload.
+	resp, _, err = curl("PUT", host+"/v1/auth/accounts/buzz", []byte(`{"users":[{}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 400 {
+		t.Fatalf("Expected BadRequest, got: %v", resp.StatusCode)
+	}
+
+	// Block export without stream or service.
+	resp, _, err = curl("PUT", host+"/v1/auth/accounts/buzz", []byte(`{"exports":[{}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 400 {
+		t.Fatalf("Expected BadRequest, got: %v", resp.StatusCode)
+	}
+
+	// Block bad imports.
+	resp, _, err = curl("PUT", host+"/v1/auth/accounts/buzz", []byte(`{"imports":[{}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 400 {
+		t.Fatalf("Expected BadRequest, got: %v", resp.StatusCode)
+	}
+
+	// Block wildcard services.
+	resp, _, err = curl("PUT", host+"/v1/auth/accounts/buzz", []byte(`{"exports":[{"service": "foo.>"}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 400 {
+		t.Fatalf("Expected BadRequest, got: %v", resp.StatusCode)
+	}
+
+	resp, _, err = curl("GET", host+"/v1/auth/accounts/foo", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Get all created accounts.
+	resp, body, err := curl("GET", host+"/v1/auth/accounts/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+	var accsBody []interface{}
+	if err := json.Unmarshal(body, &accsBody); err != nil {
+		t.Fatal(err)
+	}
+	if len(accsBody) != 3 {
+		t.Fatalf("Expected 3 accounts, got: %v", len(accsBody))
+	}
+
+	// DELETE account and make sure we can't GET it.
+	resp, _, err = curl("DELETE", host+"/v1/auth/accounts/fizz", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+	resp, _, err = curl("GET", host+"/v1/auth/accounts/fizz", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 400 {
+		t.Fatalf("Expected BadRequest, got: %v", resp.StatusCode)
+	}
+
 	// Create a couple of users
 	payload := `{
 	  "username": "foo-user",
@@ -289,7 +389,7 @@ func TestFullCycleWithAccounts(t *testing.T) {
           "permissions": "normal-user",
           "account": "foo"
 	}`
-	resp, _, err := curl("PUT", host+"/v1/auth/idents/foo-user", []byte(payload))
+	resp, _, err = curl("PUT", host+"/v1/auth/idents/foo-user", []byte(payload))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -324,6 +424,14 @@ func TestFullCycleWithAccounts(t *testing.T) {
 		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
 	}
 
+	resp, _, err = curl("PUT", host+"/v1/auth/idents/quux-user", []byte(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
 	// Create the permissions.
 	payload = `{
          "publish": {
@@ -347,7 +455,7 @@ func TestFullCycleWithAccounts(t *testing.T) {
 		t.Fatal(err)
 	}
 	if resp.StatusCode != 200 {
-		t.Errorf("Expected OK, got: %v", resp.StatusCode)
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
 	}
 
 	// Publish a named snapshot.
@@ -356,7 +464,7 @@ func TestFullCycleWithAccounts(t *testing.T) {
 		t.Fatal(err)
 	}
 	if resp.StatusCode != 200 {
-		t.Errorf("Expected OK, got: %v", resp.StatusCode)
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
 	}
 
 	select {

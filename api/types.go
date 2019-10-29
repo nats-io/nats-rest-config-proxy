@@ -64,7 +64,7 @@ func (u *User) AsJSON() ([]byte, error) {
 // Permissions are the publish/subscribe rules.
 type Permissions struct {
 	// Publish are the publish permissions.
-	Publish   *PermissionRules `json:"publish,omitempty"`
+	Publish *PermissionRules `json:"publish,omitempty"`
 
 	// Subscribe are the subscriber permissions.
 	Subscribe *PermissionRules `json:"subscribe,omitempty"`
@@ -94,7 +94,40 @@ type ConfigUser struct {
 // Account with users.
 type Account struct {
 	// Users that belong to the account.
-	Users []*ConfigUser `json:"users"`
+	Users []*ConfigUser `json:"users,omitempty"`
+
+	// Exports are the exports from this account.
+	Exports []*Export `json:"exports,omitempty"`
+
+	// Imports are the imports from this account.
+	Imports []*Import `json:"imports,omitempty"`
+}
+
+// AsJSON returns a byte slice of the type.
+func (u *Account) AsJSON() ([]byte, error) {
+	return marshalIndent(u)
+}
+
+// Export
+type Export struct {
+	Stream   string   `json:"stream,omitempty"`
+	Service  string   `json:"service,omitempty"`
+	Accounts []string `json:"accounts,omitempty"`
+	Response string   `json:"response,omitempty"`
+}
+
+// Import
+type Import struct {
+	Service *GenericImport `json:"service,omitempty"`
+	Stream  *GenericImport `json:"stream,omitempty"`
+}
+
+// GenericImport
+type GenericImport struct {
+	Account      string `json:"account,omitempty"`
+	Subject      string `json:"subject,omitempty"`
+	StreamPrefix string `json:"prefix,omitempty"`
+	ServiceTo    string `json:"to,omitempty"`
 }
 
 // AuthConfig represents the complete authorization config
