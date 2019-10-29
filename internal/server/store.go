@@ -58,7 +58,7 @@ func (s *Server) storeAccountResource(name string, account *api.Account) error {
 // getAllAccountResources reads all account resource files.
 func (s *Server) getAllAccountResources() ([]*api.Account, error) {
 	root := filepath.Join(s.resourcesDir(), "accounts")
-	var accounts []*api.Account
+	am := make(map[string]*api.Account)
 
 	err := filepath.Walk(root, func(p string, fi os.FileInfo, err error) error {
 		if err != nil {
@@ -78,7 +78,9 @@ func (s *Server) getAllAccountResources() ([]*api.Account, error) {
 		if err := json.Unmarshal(data, &a); err != nil {
 			return err
 		}
-		accounts = append(accounts, a)
+
+		accountName := filepath.Base(strings.TrimSuffix(p, ".json"))
+		am[accountName] = a
 
 		return nil
 	})
@@ -86,7 +88,33 @@ func (s *Server) getAllAccountResources() ([]*api.Account, error) {
 		return nil, err
 	}
 
-	return accounts, nil
+	users, err := s.getUsers()
+	if err != nil {
+		return nil, err
+	}
+
+	// Join Account and User on account name.
+	for _, u := range users {
+		a, ok := am[u.Account]
+		if !ok {
+			// User is part of an account that doesn't exist yet.
+			continue
+		}
+
+		// Add user to the Account's Users field.
+		a.Users = append(a.Users, &api.ConfigUser{
+			Username: u.Username,
+			Password: u.Password,
+			Nkey:     u.Nkey,
+		})
+		am[u.Account] = a
+	}
+
+	var as []*api.Account
+	for _, a := range am {
+		as = append(as, a)
+	}
+	return as, nil
 }
 
 // getAccountResource reads an account resource from a file.

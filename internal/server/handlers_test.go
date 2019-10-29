@@ -1532,7 +1532,7 @@ func TestAccountsHandler(t *testing.T) {
 `
 		got := string(contents)
 		if got != expected {
-			t.Errorf("Expected: %+v\nGot: %+v", expected, got)
+			t.Errorf("Expected: %q\nGot: %q", expected, got)
 		}
 	})
 
@@ -1545,51 +1545,14 @@ func TestAccountsHandler(t *testing.T) {
 			t.Errorf("Expected OK, got: %v", resp.StatusCode)
 		}
 
-		expected := `[{
-  "exports": [
-    {
-      "stream": "bar.public.>",
-      "accounts": [
-        "foo"
-      ]
-    }
-  ]
-}
-,{
-  "exports": [
-    {
-      "stream": "foo.public.>"
-    },
-    {
-      "service": "foo.api"
-    }
-  ]
-}
-,{
-  "imports": [
-    {
-      "stream": {
-        "account": "foo",
-        "subject": "foo.public.>"
-      }
-    }
-  ]
-}
-,{
-  "imports": [
-    {
-      "service": {
-        "account": "foo",
-        "subject": "foo.api"
-      }
-    }
-  ]
-}
-]`
-		got := string(body)
-		if got != expected {
-			t.Errorf("got %d : want %d", len(got), len(expected))
-			t.Errorf("Expected: %+v\nGot: %+v", expected, got)
+		expected := 4
+		var got []interface{}
+		if err := json.Unmarshal(body, &got); err != nil {
+			t.Fatal(err)
+		}
+
+		if len(got) != expected {
+			t.Errorf("Expected: %+v\nGot: %+v", expected, len(got))
 		}
 	})
 
