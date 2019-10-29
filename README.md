@@ -170,6 +170,8 @@ Command                    | GET | POST                    | PUT | DELETE
 /healthz                   | 200 | 405                     | 405 | 405
 /v1/auth/snapshot?name=foo | 405 | snapshot current config | 405 | deletes named snapshot
 /v1/auth/publish?name=foo  | 405 | Saves / invokes script  | 405 | 405
+/v2/auth/snapshot?name=foo | 405 | snapshot current config | 405 | deletes named snapshot
+/v2/auth/publish?name=foo  | 405 | Saves / invokes script  | 405 | 405
 
 In addition to `/v1/auth/snapshot`, there is also `/v2/auth/snapshot` which is
 documented below in the v2.0 Accounts section.
@@ -585,10 +587,6 @@ couple of variables that can be used as follow:
 
 ```conf
 include "config/current/accounts/auth.conf"
-
-# Create the users bound to different accounts.
-accounts = $accounts
-
 ```
 
 ## Our sponsor for this project
