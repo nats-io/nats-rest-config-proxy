@@ -1,4 +1,4 @@
-[![License][License-Image]][License-Url][![Build][Build-Status-Image]][Build-Status-Url] [![Coverage Status](https://coveralls.io/repos/github/nats-io/nats-rest-config-proxy/badge.svg?branch=master&t=s8FTRY)](https://coveralls.io/github/nats-io/nats-rest-config-proxy?branch=master)[![Version](https://d25lcipzij17d.cloudfront.net/badge.svg?id=go&type=5&v=0.2.0)](https://github.com/nats-io/nats-rest-config-proxy/releases/tag/v0.3.0)
+[![License][License-Image]][License-Url][![Build][Build-Status-Image]][Build-Status-Url] [![Coverage Status](https://coveralls.io/repos/github/nats-io/nats-rest-config-proxy/badge.svg?branch=master&t=s8FTRY)](https://coveralls.io/github/nats-io/nats-rest-config-proxy?branch=master)[![Version](https://d25lcipzij17d.cloudfront.net/badge.svg?id=go&type=5&v=0.3.0)](https://github.com/nats-io/nats-rest-config-proxy/releases/tag/v0.3.0)
 
 # NATS REST Configuration Proxy
 
