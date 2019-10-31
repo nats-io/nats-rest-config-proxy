@@ -738,7 +738,7 @@ func (s *Server) HandleSnapshotV2(w http.ResponseWriter, req *http.Request) {
 	name := req.URL.Query().Get("name")
 	if name == "" {
 		name = DefaultSnapshotName
-	} 
+	}
 
 	switch req.Method {
 	case "POST":

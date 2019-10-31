@@ -147,6 +147,14 @@ func TestIdentsHandler(t *testing.T) {
 	if !reflect.DeepEqual(expected, ur) {
 		t.Errorf("Expected: %+v\nGot: %+v", expected, ur)
 	}
+
+	resp, _, err = curl("HEAD", host+"/v1/auth/idents/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 405 {
+		t.Fatalf("Expected Method Not Allowed, got: %v", resp.StatusCode)
+	}
 }
 
 func TestPermsHandler(t *testing.T) {
@@ -897,8 +905,16 @@ func TestSnapshotHandler(t *testing.T) {
 	host := fmt.Sprintf("http://%s:%d", s.opts.Host, s.opts.Port)
 	createFixtures(t, host)
 
+	resp, _, err := curl("HEAD", host+"/v1/auth/snapshot", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 405 {
+		t.Fatalf("Expected Method Not Allowed, got: %v", resp.StatusCode)
+	}
+
 	// Publish the snapshot
-	resp, _, err := curl("POST", host+"/v1/auth/snapshot", []byte(""))
+	resp, _, err = curl("POST", host+"/v1/auth/snapshot", []byte(""))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1556,6 +1572,24 @@ func TestAccountsHandler(t *testing.T) {
 		}
 	})
 
+	t.Run("get one account", func(t *testing.T) {
+		resp, _, err := curl("GET", host+"/v1/auth/accounts/bar", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != 200 {
+			t.Errorf("Expected OK, got: %v", resp.StatusCode)
+		}
+
+		resp, _, err = curl("GET", host+"/v1/auth/accounts/notexist", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != 404 {
+			t.Errorf("Expected Not Found, got: %v", resp.StatusCode)
+		}
+	})
+
 	// Publish and snapshot with the new structure
 	resp, _, err := curl("POST", host+"/v2/auth/snapshot?name=new", []byte(""))
 	if err != nil {
@@ -1587,6 +1621,42 @@ func TestAccountsHandler(t *testing.T) {
 	}
 	if resp.StatusCode != 200 {
 		t.Errorf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Can't delete account because users are using it.
+	resp, _, err = curl("DELETE", host+"/v1/auth/accounts/bar", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 409 {
+		t.Errorf("Expected Conflict, got: %v", resp.StatusCode)
+	}
+
+	// Delete all users.
+	resp, _, err = curl("DELETE", host+"/v1/auth/idents", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Errorf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Now we can delete the acocunt.
+	resp, _, err = curl("DELETE", host+"/v1/auth/accounts/bar", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Errorf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Method not allowed
+	resp, _, err = curl("HEAD", host+"/v1/auth/accounts/bar", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 405 {
+		t.Errorf("Expected Method Not Allowed, got: %v", resp.StatusCode)
 	}
 }
 
