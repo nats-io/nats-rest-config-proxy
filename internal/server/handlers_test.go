@@ -155,6 +155,33 @@ func TestIdentsHandler(t *testing.T) {
 	if resp.StatusCode != 405 {
 		t.Fatalf("Expected Method Not Allowed, got: %v", resp.StatusCode)
 	}
+
+	// Make sure duplicate usernames aren't allowed.
+	payload = `{
+          "username": "fizz",
+          "password": "secret",
+          "permissions": "normal-user"
+	}`
+	resp, _, err = curl("PUT", host+"/v1/auth/idents/fizz", []byte(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+	payload = `{
+          "username": "fizz",
+          "password": "secret",
+          "permissions": "normal-user",
+          "account": "account-fizz"
+	}`
+	resp, _, err = curl("PUT", host+"/v1/auth/idents/buzz", []byte(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 409 {
+		t.Fatalf("Expected Conflict, got: %v", resp.StatusCode)
+	}
 }
 
 func TestPermsHandler(t *testing.T) {
@@ -971,6 +998,36 @@ func TestSnapshotHandler(t *testing.T) {
 	}
 }
 
+func TestValidateSnapshotHandler(t *testing.T) {
+	s, err := newTestServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(s.opts.DataDir)
+
+	ctx, done := context.WithTimeout(context.Background(), 2*time.Second)
+	defer done()
+	go s.Run(ctx)
+	defer func() {
+		s.Shutdown(ctx)
+		waitServerIsDone(t, ctx, s)
+	}()
+
+	waitServerIsReady(t, ctx, s)
+
+	host := fmt.Sprintf("http://%s:%d", s.opts.Host, s.opts.Port)
+	createFixtures(t, host)
+
+	// Publish the snapshot
+	resp, _, err := curl("POST", host+"/v2/auth/validate", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+}
+
 func TestSnapshotWithNameHandler(t *testing.T) {
 	s, err := newTestServer()
 	if err != nil {
@@ -1704,8 +1761,7 @@ echo 'Publishing script...' > ./artifact2.log
 		t.Fatal(err)
 	}
 
-
-        expected := `{
+	expected := `{
   "users": [
     {
       "username": "first-user",
@@ -1758,5 +1814,50 @@ echo 'Publishing script...' > ./artifact2.log
 	expected = "Publishing script...\n"
 	if got != expected {
 		t.Fatalf("Expected: %s, got: %s", expected, got)
+	}
+}
+
+func TestVerifyIdent(t *testing.T) {
+	cases := []struct {
+		name  string
+		users []*api.User
+		u     *api.User
+		want  bool
+	}{
+		{
+			name:  "same user, same account",
+			users: []*api.User{{Username: "foo", Account: "bar"}},
+			u:     &api.User{Username: "foo", Account: "bar"},
+			want:  false,
+		},
+		{
+			name:  "same user, different account",
+			users: []*api.User{{Username: "foo", Account: "bar"}},
+			u:     &api.User{Username: "foo", Account: "fizz"},
+			want:  true,
+		},
+		{
+			name:  "same user, different passwords",
+			users: []*api.User{{Username: "foo", Password: "bar"}},
+			u:     &api.User{Username: "foo", Password: "fizz"},
+			want:  true,
+		},
+		{
+			name:  "same user, different creds",
+			users: []*api.User{{Username: "foo", Password: "bar"}},
+			u:     &api.User{Username: "foo", Nkey: "fizz"},
+			want:  true,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			err := verifyIdent(c.users, c.u)
+			got := err != nil
+
+			if got != c.want {
+				t.Fatalf("Expected error: %t, got: %t", c.want, got)
+			}
+		})
 	}
 }

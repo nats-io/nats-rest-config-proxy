@@ -17,12 +17,16 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
+	"time"
 
 	"github.com/nats-io/nats-rest-config-proxy/internal/server"
 )
 
 func main() {
+	rand.Seed(time.Now().UnixNano())
+
 	opts, err := server.ConfigureOptions(os.Args[1:])
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)

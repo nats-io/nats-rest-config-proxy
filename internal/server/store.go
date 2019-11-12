@@ -20,9 +20,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/nats-io/nats-rest-config-proxy/api"
+	natsserver "github.com/nats-io/nats-server/server"
 )
 
 // storePermissionResource
@@ -152,7 +154,7 @@ func (s *Server) getPermissionResource(name string) (u *api.Permissions, err err
 	return
 }
 
-// getPermissions returns a set of permissions.
+// getPermissions returns a map of permissions filename to api.Permissions.
 func (s *Server) getPermissions() (map[string]*api.Permissions, error) {
 	permissions := make(map[string]*api.Permissions)
 	files, err := ioutil.ReadDir(filepath.Join(s.resourcesDir(), "permissions"))
@@ -172,7 +174,7 @@ func (s *Server) getPermissions() (map[string]*api.Permissions, error) {
 	return permissions, nil
 }
 
-// getAccounts returns a set of accounts.
+// getAccounts returns a map of account filename to api.Account.
 func (s *Server) getAccounts() (map[string]*api.Account, error) {
 	accounts := make(map[string]*api.Account)
 	files, err := ioutil.ReadDir(filepath.Join(s.resourcesDir(), "accounts"))
@@ -390,6 +392,7 @@ func (s *Server) buildConfigSnapshot(name string) error {
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -411,19 +414,22 @@ func (s *Server) buildConfigSnapshotV2(snapshotName string) error {
 
 	// Reduce the users into the account, then explode the accounts
 	// by iterating at the end.
-	files, err := ioutil.ReadDir(filepath.Join(s.resourcesDir(), "users"))
+	userFiles, err := ioutil.ReadDir(filepath.Join(s.resourcesDir(), "users"))
 	if err != nil {
 		return err
 	}
 
-	users := make([]*api.ConfigUser, 0)
-	for _, f := range files {
+	// Convert api.User to api.ConfigUser.
+	var globalUsers []*api.ConfigUser
+	for _, f := range userFiles {
 		basename := f.Name()
 		name := strings.TrimSuffix(basename, filepath.Ext(basename))
 		u, err := s.getUserResource(name)
 		if err != nil {
 			return err
 		}
+
+		// Lookup the permissions file this user has specified.
 		p, ok := permissions[u.Permissions]
 		if !ok {
 			s.log.Warnf("User %q will use default permissions", u.Username)
@@ -431,6 +437,7 @@ func (s *Server) buildConfigSnapshotV2(snapshotName string) error {
 		user := &api.ConfigUser{
 			Permissions: p,
 		}
+
 		if u.Username != "" {
 			user.Username = u.Username
 		}
@@ -444,13 +451,15 @@ func (s *Server) buildConfigSnapshotV2(snapshotName string) error {
 		if u.Account != "" {
 			account, ok := accounts[u.Account]
 			if !ok {
-				fmt.Println("account does not exist!", u.Account)
+				s.log.Warnf("account %s does not exist!", u.Account)
 				continue
 			}
+
 			// Add the user to the account.
 			account.Users = append(account.Users, user)
+			accounts[u.Account] = account
 		} else {
-			users = append(users, user)
+			globalUsers = append(globalUsers, user)
 		}
 	}
 
@@ -464,6 +473,8 @@ func (s *Server) buildConfigSnapshotV2(snapshotName string) error {
 
 	var authContent string
 	for accName, account := range accounts {
+		account.Users = mergeDuplicateUsers(account.Users)
+
 		// Store each one of the accounts here.
 		acc, err := account.AsJSON()
 		if err != nil {
@@ -476,14 +487,16 @@ func (s *Server) buildConfigSnapshotV2(snapshotName string) error {
 		authContent += fmt.Sprintf("  %s { include '%s.json' }\n", accName, accName)
 	}
 
+	globalUsers = mergeDuplicateUsers(globalUsers)
+
 	// Create the include file
 	var authIncludes string
-	if len(users) > 0 {
+	if len(globalUsers) > 0 {
 		type globalUsersConfig struct {
 			Users []*api.ConfigUser `json:"users"`
 		}
 		gusers := &globalUsersConfig{
-			Users: users,
+			Users: globalUsers,
 		}
 
 		u, err := marshalIndent(gusers)
@@ -502,7 +515,95 @@ func (s *Server) buildConfigSnapshotV2(snapshotName string) error {
 		return err
 	}
 
-	return nil
+	return s.validateSnapshotConfigV2(snapshotName)
+}
+
+// mergeDuplicateUsers takes an array of users and merges the permissions of
+// users that have the same name. The caller should make sure that all of the
+// users in the given array are from the same account.
+func mergeDuplicateUsers(users []*api.ConfigUser) []*api.ConfigUser {
+	m := make(map[string]*api.ConfigUser)
+
+	for _, u := range users {
+		key := u.Username + u.Password + u.Nkey
+
+		if prev, ok := m[key]; ok {
+			// Found a duplicate!
+			p := mergeUserPermissions(prev.Permissions, u.Permissions)
+			prev.Permissions = p
+
+			// Keep original. It shouldn't matter which we keep because only
+			// the permissions should be different.
+			m[key] = prev
+			continue
+		}
+
+		// Not seen before, keep track.
+		m[key] = u
+	}
+
+	deduped := make([]*api.ConfigUser, 0, len(m))
+	for _, user := range m {
+		deduped = append(deduped, user)
+	}
+
+	return deduped
+}
+
+func mergeUserPermissions(a, b *api.Permissions) *api.Permissions {
+	if a == nil && b == nil {
+		return nil
+	}
+
+	publish := mergePermissionRules(a.Publish, b.Publish)
+	subscribe := mergePermissionRules(a.Subscribe, b.Subscribe)
+
+	return &api.Permissions{
+		Publish:   publish,
+		Subscribe: subscribe,
+	}
+}
+
+func mergePermissionRules(a, b *api.PermissionRules) *api.PermissionRules {
+	if a == nil && b == nil {
+		return nil
+	}
+
+	allow := mergeStringSlices(a.Allow, b.Allow)
+	deny := mergeStringSlices(a.Deny, b.Deny)
+
+	return &api.PermissionRules{
+		Allow: allow,
+		Deny:  deny,
+	}
+}
+
+func mergeStringSlices(a, b []string) []string {
+	m := make(map[string]struct{})
+	for _, s := range a {
+		m[s] = struct{}{}
+	}
+	for _, s := range b {
+		m[s] = struct{}{}
+	}
+
+	if len(m) == 0 {
+		return nil
+	}
+
+	dd := make([]string, 0, len(m))
+	for s := range m {
+		dd = append(dd, s)
+	}
+
+	sort.Strings(dd)
+	return dd
+}
+
+func (s *Server) validateSnapshotConfigV2(name string) error {
+	p := filepath.Join(s.snapshotsDir(), name, "auth.conf")
+	_, err := natsserver.ProcessConfigFile(p)
+	return err
 }
 
 func (s *Server) storeSnapshot(name string, payload []byte) error {
