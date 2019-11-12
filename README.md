@@ -490,11 +490,24 @@ curl -X PUT http://127.0.0.1:4567/v1/auth/perms/admin -d '{
 }'
 ```
 
-Let's create some accounts.
+Let's create some accounts. In this example, the account `Foo` will export a stream and a service that account `Bar` will be able to import using a different prefix and subject:
 
 ```
-curl -X PUT http://127.0.0.1:4567/v1/auth/accounts/Bar
-curl -X PUT http://127.0.0.1:4567/v1/auth/accounts/Foo
+curl -X PUT http://127.0.0.1:4567/v1/auth/accounts/Foo -d '{
+  "exports": [
+    { "stream": "Foo.public.>" },
+    { "service": "Foo.api" }
+  ]
+}
+'
+
+curl -X PUT http://127.0.0.1:4567/v1/auth/accounts/Bar -d '{
+  "imports": [
+    { "stream":  {"account": "Foo", "subject": "Foo.public.>" }, "prefix": "from" },
+    { "service": {"account": "Foo", "subject": "Foo.api" }, "to": "from.Foo.api" }
+  ]
+}
+'
 ```
 
 Now that we have created the permissions, let's bind some users to these permissions:
