@@ -1,4 +1,4 @@
-[![License][License-Image]][License-Url][![Build][Build-Status-Image]][Build-Status-Url] [![Coverage Status](https://coveralls.io/repos/github/nats-io/nats-rest-config-proxy/badge.svg?branch=master&t=s8FTRY)](https://coveralls.io/github/nats-io/nats-rest-config-proxy?branch=master)[![Version](https://d25lcipzij17d.cloudfront.net/badge.svg?id=go&type=5&v=0.3.0)](https://github.com/nats-io/nats-rest-config-proxy/releases/tag/v0.3.0)
+[![License][License-Image]][License-Url][![Build][Build-Status-Image]][Build-Status-Url] [![Coverage Status](https://coveralls.io/repos/github/nats-io/nats-rest-config-proxy/badge.svg?branch=master&t=s8FTRY)](https://coveralls.io/github/nats-io/nats-rest-config-proxy?branch=master)[![Version](https://d25lcipzij17d.cloudfront.net/badge.svg?id=go&type=5&v=0.3.2)](https://github.com/nats-io/nats-rest-config-proxy/releases/tag/v0.3.2)
 
 # NATS REST Configuration Proxy
 
@@ -172,6 +172,7 @@ Command                    | GET | POST                    | PUT | DELETE
 /v1/auth/publish?name=foo  | 405 | Saves / invokes script  | 405 | 405
 /v2/auth/snapshot?name=foo | 405 | snapshot current config | 405 | deletes named snapshot
 /v2/auth/publish?name=foo  | 405 | Saves / invokes script  | 405 | 405
+/v2/auth/validate          | 405 | Validates the config    | 405 | 405
 
 In addition to `/v1/auth/snapshot`, there is also `/v2/auth/snapshot` which is
 documented below in the v2.0 Accounts section.
