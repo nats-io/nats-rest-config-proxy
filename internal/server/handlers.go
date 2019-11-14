@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"os"
 	"os/exec"
@@ -170,6 +171,17 @@ func (s *Server) HandleIdent(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
+		var existing []*api.User
+		existing, err = s.getUsers()
+		if err != nil {
+			status = http.StatusBadRequest
+			return
+		}
+		if err = verifyIdent(existing, u); err != nil {
+			status = http.StatusConflict
+			return
+		}
+
 		// Store permission
 		s.log.Tracef("User %q: %+v", name, u)
 		err = s.storeUserResource(name, u)
@@ -227,6 +239,24 @@ func (s *Server) HandleIdent(w http.ResponseWriter, req *http.Request) {
 		status = http.StatusMethodNotAllowed
 		err = fmt.Errorf("%s is not allowed on %q", req.Method, req.URL.Path)
 	}
+}
+
+func verifyIdent(users []*api.User, u *api.User) error {
+	for _, user := range users {
+		if user.Username != u.Username {
+			continue
+		}
+
+		if user.Account != u.Account {
+			return fmt.Errorf("%s already exists in different account", u.Username)
+		}
+
+		if user.Password != u.Password || user.Nkey != u.Nkey {
+			return fmt.Errorf("conflicting creds for user %s", u.Username)
+		}
+	}
+
+	return nil
 }
 
 // HandleSnapshot
@@ -770,6 +800,61 @@ func (s *Server) HandleSnapshotV2(w http.ResponseWriter, req *http.Request) {
 		status = http.StatusMethodNotAllowed
 		err = fmt.Errorf("%s is not allowed on %q", req.Method, req.URL.Path)
 	}
+}
+
+// HandleValidateSnapshotV2
+func (s *Server) HandleValidateSnapshotV2(w http.ResponseWriter, req *http.Request) {
+	var (
+		size   int
+		status int = http.StatusOK
+		err    error
+	)
+	defer func() {
+		s.processErr(err, status, w, req)
+		s.log.traceRequest(req, size, status, time.Now())
+	}()
+
+	err = s.verifyAuth(w, req)
+	if err != nil {
+		status = http.StatusUnauthorized
+		return
+	}
+
+	if req.Method != "POST" {
+		status = http.StatusMethodNotAllowed
+		err = fmt.Errorf("%s is not allowed on %q", req.Method, req.URL.Path)
+		return
+	}
+
+	s.log.Infof("Building latest config...")
+	name := randomString(32)
+	err = s.buildConfigSnapshotV2(name)
+	if err != nil {
+		status = http.StatusInternalServerError
+		return
+	}
+	if err = s.deleteConfigSnapshotV2(name); err != nil {
+		status = http.StatusInternalServerError
+		return
+	}
+
+	fmt.Fprintf(w, "OK\n")
+}
+
+func randomString(n int) string {
+	a := 97
+	z := 122
+
+	var buf strings.Builder
+	for i := 0; i < n; i++ {
+		buf.WriteByte(byte(randIntRange(a, z)))
+	}
+
+	return buf.String()
+}
+
+func randIntRange(min, max int) int {
+	return rand.Intn(max-min) + min
 }
 
 // HandlePublishV2

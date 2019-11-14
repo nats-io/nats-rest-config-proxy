@@ -141,7 +141,7 @@ func TestFullCycle(t *testing.T) {
 	payload := `{
 	  "username": "user-a",
 	  "password": "secret",
-          "permissions": "normal-user"
+	  "permissions": "normal-user"
 	}`
 	resp, _, err := curl("PUT", host+"/v1/auth/idents/user-a", []byte(payload))
 	if err != nil {
@@ -154,7 +154,7 @@ func TestFullCycle(t *testing.T) {
 	payload = `{
 	  "username": "user-b",
 	  "password": "secret",
-          "permissions": "normal-user"
+	  "permissions": "normal-user"
 	}`
 	resp, _, err = curl("PUT", host+"/v1/auth/idents/user-b", []byte(payload))
 	if err != nil {
@@ -386,8 +386,8 @@ func TestFullCycleWithAccounts(t *testing.T) {
 	payload := `{
 	  "username": "foo-user",
 	  "password": "secret",
-          "permissions": "normal-user",
-          "account": "foo"
+	  "permissions": "normal-user",
+	  "account": "foo"
 	}`
 	resp, _, err = curl("PUT", host+"/v1/auth/idents/foo-user", []byte(payload))
 	if err != nil {
@@ -414,16 +414,8 @@ func TestFullCycleWithAccounts(t *testing.T) {
 	payload = `{
 	  "username": "quux-user",
 	  "password": "secret",
-          "permissions": "normal-user"
+	  "permissions": "normal-user"
 	}`
-	resp, _, err = curl("PUT", host+"/v1/auth/idents/quux-user", []byte(payload))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resp.StatusCode != 200 {
-		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
-	}
-
 	resp, _, err = curl("PUT", host+"/v1/auth/idents/quux-user", []byte(payload))
 	if err != nil {
 		t.Fatal(err)
@@ -651,8 +643,8 @@ func TestFullCycleWithAccountsImportsExports(t *testing.T) {
 	payload := `{
 	  "username": "foo-user",
 	  "password": "secret",
-          "permissions": "normal-user",
-          "account": "foo"
+	  "permissions": "normal-user",
+	  "account": "foo"
 	}`
 	resp, _, err = curl("PUT", host+"/v1/auth/idents/foo-user", []byte(payload))
 	if err != nil {
@@ -665,8 +657,8 @@ func TestFullCycleWithAccountsImportsExports(t *testing.T) {
 	payload = `{
 	  "username": "quux-user",
 	  "password": "secret",
-          "permissions": "normal-user",
-          "account": "quux"
+	  "permissions": "normal-user",
+	  "account": "quux"
 	}`
 	resp, _, err = curl("PUT", host+"/v1/auth/idents/quux-user", []byte(payload))
 	if err != nil {

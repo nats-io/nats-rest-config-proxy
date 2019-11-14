@@ -74,3 +74,139 @@ func TestStoreGetUser(t *testing.T) {
 		t.Errorf("Expected %+v, got: %+v", expected, got)
 	}
 }
+
+func TestMergeDuplicateUsers(t *testing.T) {
+	permA := &api.Permissions{
+		Publish: &api.PermissionRules{
+			Allow: []string{"a"},
+		},
+	}
+	permB := &api.Permissions{
+		Publish: &api.PermissionRules{
+			Allow: []string{"b"},
+		},
+	}
+	permAB := &api.Permissions{
+		Publish: &api.PermissionRules{
+			Allow: []string{"a", "b"},
+		},
+	}
+
+	permC := &api.Permissions{
+		Publish: &api.PermissionRules{
+			Allow: []string{"a"},
+			Deny:  []string{"aa"},
+		},
+	}
+	permD := &api.Permissions{
+		Publish: &api.PermissionRules{
+			Allow: []string{"b"},
+		},
+	}
+	permCD := &api.Permissions{
+		Publish: &api.PermissionRules{
+			Allow: []string{"a", "b"},
+			Deny:  []string{"aa"},
+		},
+	}
+
+	cases := []struct {
+		name  string
+		users []*api.ConfigUser
+		want  []*api.ConfigUser
+	}{
+		{
+			name: "different usernames no-op",
+			users: []*api.ConfigUser{
+				{Username: "foo", Permissions: permA},
+				{Username: "bar", Permissions: permA},
+			},
+			want: []*api.ConfigUser{
+				{Username: "foo", Permissions: permA},
+				{Username: "bar", Permissions: permA},
+			},
+		},
+		{
+			name: "different creds no-op",
+			users: []*api.ConfigUser{
+				{Username: "foo", Password: "fizz", Permissions: permA},
+				{Username: "foo", Password: "buzz", Permissions: permA},
+			},
+			want: []*api.ConfigUser{
+				{Username: "foo", Password: "fizz", Permissions: permA},
+				{Username: "foo", Password: "buzz", Permissions: permA},
+			},
+		},
+		{
+			name: "merge perm a",
+			users: []*api.ConfigUser{
+				{Username: "foo", Permissions: permA},
+				{Username: "foo", Permissions: permA},
+			},
+			want: []*api.ConfigUser{
+				{Username: "foo", Permissions: permA},
+			},
+		},
+		{
+			name: "merge perm a and b",
+			users: []*api.ConfigUser{
+				{Username: "foo", Permissions: permA},
+				{Username: "foo", Permissions: permB},
+			},
+			want: []*api.ConfigUser{
+				{Username: "foo", Permissions: permAB},
+			},
+		},
+		{
+			name: "merge perm c and d",
+			users: []*api.ConfigUser{
+				{Username: "foo", Permissions: permC},
+				{Username: "foo", Permissions: permD},
+			},
+			want: []*api.ConfigUser{
+				{Username: "foo", Permissions: permCD},
+			},
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := mergeDuplicateUsers(c.users)
+			if !configUsersEqual(got, c.want) {
+				t.Errorf("Expected len %d, got len: %d", len(c.want), len(got))
+				t.Errorf("Expected %#v, got: %#v", c.want, got)
+				t.Error("--- got ---")
+				for i, u := range got {
+					t.Errorf("%d Username: %#v\n", i, u.Username)
+					t.Errorf("%d Password: %#v\n", i, u.Password)
+					t.Errorf("%d Nkey: %#v\n", i, u.Nkey)
+					t.Errorf("%d Permissions: %#v\n", i, u.Permissions)
+					t.Errorf("%d Publish: %#v\n", i, u.Permissions.Publish)
+					t.Errorf("%d Subscribe: %#v\n", i, u.Permissions.Subscribe)
+				}
+			}
+		})
+	}
+}
+
+func configUsersEqual(a, b []*api.ConfigUser) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	var found bool
+	for _, ua := range a {
+		found = false
+		for _, ub := range b {
+			if reflect.DeepEqual(ua, ub) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+
+	return true
+}
