@@ -181,6 +181,8 @@ documented below in the v2.0 Accounts section.
 
 #### Create/update a permission
 
+Plain permissions.
+
 ```bash
 curl -X PUT http://127.0.0.1:4567/v1/auth/perms/sample-user -d '{
  "publish": {
@@ -188,6 +190,17 @@ curl -X PUT http://127.0.0.1:4567/v1/auth/perms/sample-user -d '{
   },
   "subscribe": {
     "deny": ["quux"]
+  }
+}'
+```
+
+Queue group permissions are supported as well. Here `bar.>` is the subject and
+`fizzgroup` is the queue group.
+
+```bash
+curl -X PUT http://127.0.0.1:4567/v1/auth/perms/sample-user -d '{
+ "publish": {
+   "allow": ["foo.*", "bar.> fizzgroup"]
   }
 }'
 ```
