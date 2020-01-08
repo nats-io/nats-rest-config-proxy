@@ -24,7 +24,7 @@ import (
 	"strings"
 
 	"github.com/nats-io/nats-rest-config-proxy/api"
-	natsserver "github.com/nats-io/nats-server/server"
+	natsserver "github.com/nats-io/nats-server/v2/server"
 )
 
 // storePermissionResource

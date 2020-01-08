@@ -1016,15 +1016,114 @@ func TestValidateSnapshotHandler(t *testing.T) {
 	waitServerIsReady(t, ctx, s)
 
 	host := fmt.Sprintf("http://%s:%d", s.opts.Host, s.opts.Port)
-	createFixtures(t, host)
 
-	// Publish the snapshot
-	resp, _, err := curl("POST", host+"/v2/auth/validate", nil)
+	// Create permissions.
+	payload := `{
+         "publish": {
+           "allow": ["foo.*", "bar.>"]
+          },
+          "subscribe": {
+            "deny": ["quux"]
+          }
+        }`
+	resp, out, err := curl("PUT", host+"/v1/auth/perms/normal-user", []byte(payload))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if resp.StatusCode != 200 {
 		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Create account
+	resp, _, err = curl("PUT", host+"/v1/auth/accounts/foo", []byte(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Create a couple of users
+	payload = `{
+          "username": "first-user",
+          "password": "secret",
+          "permissions": "normal-user",
+          "account": "foo"
+        }`
+	resp, _, err = curl("PUT", host+"/v1/auth/idents/first-user", []byte(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+	payload = `{
+          "username": "second-user",
+          "password": "secret",
+          "permissions": "normal-user",
+          "account": "foo"
+        }`
+	resp, _, err = curl("PUT", host+"/v1/auth/idents/second-user", []byte(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Publish the snapshot
+	resp, out, err = curl("POST", host+"/v2/auth/validate", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Create invalid permissions, using empty string in this case.
+	payload = `{
+         "publish": {
+           "allow": [""]
+          },
+          "subscribe": {
+            "deny": ["foo"]
+          }
+        }`
+	resp, _, err = curl("PUT", host+"/v1/auth/perms/bad-user", []byte(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Create bad fixture
+	payload = `{
+          "username": "third-user",
+          "password": "secret",
+          "permissions": "bad-user",
+          "account": "foo"
+        }`
+	resp, out, err = curl("PUT", host+"/v1/auth/idents/third-user", []byte(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Validate should fail
+	resp, out, err = curl("POST", host+"/v2/auth/validate", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 500 {
+		t.Fatalf("Expected 500, got: %v", resp.StatusCode)
+	}
+
+	result := string(out)
+	if !strings.Contains(result, `subject "" is not a valid subject`) {
+		t.Fatal("Expected to find invalidation error")
 	}
 }
 
