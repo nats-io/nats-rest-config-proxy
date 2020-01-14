@@ -10,3 +10,6 @@
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+
+cmd/nats-rest-config-validator/nats-rest-config-validator
+cmd/nats-rest-config-proxy/nats-rest-config-proxy

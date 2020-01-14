@@ -14,13 +14,16 @@
 package server
 
 import (
+	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/nats-io/nats-rest-config-proxy/api"
@@ -432,7 +435,7 @@ func (s *Server) buildConfigSnapshotV2(snapshotName string) error {
 		// Lookup the permissions file this user has specified.
 		p, ok := permissions[u.Permissions]
 		if !ok {
-			s.log.Warnf("User %q will use default permissions", u.Username)
+			// User will use default permissions.
 		}
 		user := &api.ConfigUser{
 			Permissions: p,
@@ -451,8 +454,7 @@ func (s *Server) buildConfigSnapshotV2(snapshotName string) error {
 		if u.Account != "" {
 			account, ok := accounts[u.Account]
 			if !ok {
-				s.log.Warnf("account %s does not exist!", u.Account)
-				continue
+				return fmt.Errorf("account %s does not exist!", u.Account)
 			}
 
 			// Add the user to the account.
@@ -601,9 +603,55 @@ func mergeStringSlices(a, b []string) []string {
 }
 
 func (s *Server) validateSnapshotConfigV2(name string) error {
-	p := filepath.Join(s.snapshotsDir(), name, "auth.conf")
-	_, err := natsserver.ProcessConfigFile(p)
-	return err
+	pt := filepath.Join(s.snapshotsDir(), name)
+	p := filepath.Join(pt, "auth.conf")
+	_, e := natsserver.ProcessConfigFile(p)
+	if e == nil {
+		return nil
+	}
+
+	// If there were any errors try to find the position
+	// of the resulting error.
+	fields := strings.Split(e.Error(), ":")
+	if len(fields) >= 3 {
+		// Try to get the line with the error.
+		path := fields[0]
+		lineNumber, err := strconv.Atoi(fields[1])
+		if err != nil {
+			goto ReportError
+		}
+
+		spaces, err := strconv.Atoi(fields[2])
+		if err != nil {
+			goto ReportError
+		}
+
+		configErr := fields[3]
+		r, err := os.Open(path)
+		if err != nil {
+			goto ReportError
+		}
+
+		output := ""
+		sc := bufio.NewScanner(r)
+		for i := 0; sc.Scan(); i++ {
+			output += sc.Text()
+			if i == lineNumber {
+				whitespace := strings.Repeat(" ", spaces)
+				output += fmt.Sprintf("\n%s^^^ %s\n", whitespace, configErr)
+				break
+			} else {
+				output += "\n"
+			}
+		}
+		return fmt.Errorf("On %s : %s", strings.Replace(path, pt, "", -1), output)
+	}
+
+ReportError:
+	if e != nil {
+		return errors.New(strings.Replace(e.Error(), pt, "", -1))
+	}
+	return nil
 }
 
 func (s *Server) storeSnapshot(name string, payload []byte) error {

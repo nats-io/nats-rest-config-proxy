@@ -827,7 +827,7 @@ func (s *Server) HandleValidateSnapshotV2(w http.ResponseWriter, req *http.Reque
 	}
 
 	s.log.Infof("Building latest config...")
-	if err := s.VerifySnapshot(); err != nil {
+	if err = s.VerifySnapshot(); err != nil {
 		status = http.StatusInternalServerError
 		return
 	}
@@ -839,6 +839,7 @@ func (s *Server) VerifySnapshot() error {
 	name := randomString(32)
 
 	if err := s.buildConfigSnapshotV2(name); err != nil {
+		defer s.deleteConfigSnapshotV2(name)
 		return err
 	}
 
