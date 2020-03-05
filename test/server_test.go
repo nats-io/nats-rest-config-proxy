@@ -333,13 +333,28 @@ func TestFullCycleWithAccounts(t *testing.T) {
 		t.Fatalf("Expected BadRequest, got: %v", resp.StatusCode)
 	}
 
-	// Block wildcard services.
 	resp, _, err = curl("PUT", host+"/v1/auth/accounts/buzz", []byte(`{"exports":[{"service": "foo.>"}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Block wildcard services imports only (note this can change in the future)
+	resp, _, err = curl("PUT", host+"/v1/auth/accounts/fib", []byte(`{"imports":[{"service": { "account": "buzz", "subject": "foo.>"}]}`))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if resp.StatusCode != 400 {
 		t.Fatalf("Expected BadRequest, got: %v", resp.StatusCode)
+	}
+	resp, _, err = curl("PUT", host+"/v1/auth/accounts/fib", []byte(`{"imports":[{"service": { "account": "buzz", "subject": "foo.help"}}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
 	}
 
 	resp, _, err = curl("GET", host+"/v1/auth/accounts/foo", nil)
@@ -362,8 +377,8 @@ func TestFullCycleWithAccounts(t *testing.T) {
 	if err := json.Unmarshal(body, &accsBody); err != nil {
 		t.Fatal(err)
 	}
-	if len(accsBody) != 3 {
-		t.Fatalf("Expected 3 accounts, got: %v", len(accsBody))
+	if len(accsBody) != 5 {
+		t.Fatalf("Expected 5 accounts, got: %v", len(accsBody))
 	}
 
 	// DELETE account and make sure we can't GET it.

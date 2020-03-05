@@ -1609,6 +1609,38 @@ func TestAccountsHandler(t *testing.T) {
 			nil,
 			errors.New(`Error: Account "none" defined in export does not exist`),
 		},
+		{
+			"create sample account with exports using wildcards",
+			"sample",
+			`{
+                           "exports": [
+                             { "service": "foo.api.>" },
+                             { "service": "foo.*" }
+                           ]
+                        }`,
+			&api.Account{
+				Exports: []*api.Export{
+					{
+						Service: "foo.api.>",
+					},
+					{
+						Service: "foo.*",
+					},
+				},
+			},
+			nil,
+		},
+		{
+			"create sample account with imports using wildcards",
+			"sample2",
+			`{
+                           "imports": [
+                             { "service": { "account": "sample", "subject": "foo.api.>" } }
+                           ]
+                        }`,
+			nil,
+			errors.New("Error: Import service subject must not have a wildcard"),
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			resp, body, err := curl("PUT", host+"/v1/auth/accounts/"+test.account, []byte(test.payload))
@@ -1783,7 +1815,7 @@ func TestAccountsHandler(t *testing.T) {
 			t.Errorf("Expected OK, got: %v", resp.StatusCode)
 		}
 
-		expected := 4
+		expected := 5
 		var got []interface{}
 		if err := json.Unmarshal(body, &got); err != nil {
 			t.Fatal(err)
