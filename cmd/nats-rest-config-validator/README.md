@@ -1,6 +1,6 @@
 # NATS REST Configuration Validator
 
-Validate your config without running the server.
+Validate your configuration from the command line without running the server.
 
 ## Usage
 
