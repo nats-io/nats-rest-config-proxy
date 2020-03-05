@@ -25,13 +25,31 @@ func main() {
 		fmt.Fprintln(os.Stderr, usageStr)
 	}
 
+	var (
+		showVersion bool
+		showHelp    bool
+	)
+
 	opts := &server.Options{
 		NoLog: true,
 	}
 	flag.StringVar(&opts.DataDir, "data", ".", "Directory for storing data.")
 	flag.StringVar(&opts.DataDir, "dir", ".", "Directory for storing data.")
 	flag.StringVar(&opts.DataDir, "d", ".", "Directory for storing data.")
+	flag.BoolVar(&showVersion, "v", false, "Show version.")
+	flag.BoolVar(&showVersion, "version", false, "Show version.")
+	flag.BoolVar(&showHelp, "h", false, "Show help.")
+	flag.BoolVar(&showHelp, "help", false, "Show help.")
 	flag.Parse()
+
+	switch {
+	case showHelp:
+		flag.Usage()
+		os.Exit(0)
+	case showVersion:
+		fmt.Printf("nats-rest-config-validator %s\n", server.Version)
+		os.Exit(0)
+	}
 
 	s := server.NewServer(opts)
 	if err := s.VerifySnapshot(); err != nil {
