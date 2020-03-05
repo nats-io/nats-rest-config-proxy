@@ -570,11 +570,6 @@ func (s *Server) HandleAccounts(w http.ResponseWriter, req *http.Request) {
 					status = http.StatusBadRequest
 					return
 				}
-				if hasWildcard(exp.Service) {
-					err = fmt.Errorf("Export service subject must not have a wildcard")
-					status = http.StatusBadRequest
-					return
-				}
 
 				for _, acc := range exp.Accounts {
 					if _, err = s.getAccountResource(acc); err != nil {
