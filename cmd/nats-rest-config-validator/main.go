@@ -12,7 +12,7 @@ import (
 
 const usageStr = `
 Options:
-    -d, --dir <directory>         Directory for storing data
+    -d, --dir <directory>         Directory for storing data (default is the current directory.)
     -h, --help                    Show this message
     -v, --version                 Show version
 `
