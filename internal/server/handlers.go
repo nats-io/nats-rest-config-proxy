@@ -827,18 +827,23 @@ func (s *Server) HandleValidateSnapshotV2(w http.ResponseWriter, req *http.Reque
 	}
 
 	s.log.Infof("Building latest config...")
-	name := randomString(32)
-	err = s.buildConfigSnapshotV2(name)
-	if err != nil {
-		status = http.StatusInternalServerError
-		return
-	}
-	if err = s.deleteConfigSnapshotV2(name); err != nil {
+	if err = s.VerifySnapshot(); err != nil {
 		status = http.StatusInternalServerError
 		return
 	}
 
 	fmt.Fprintf(w, "OK\n")
+}
+
+func (s *Server) VerifySnapshot() error {
+	name := randomString(32)
+
+	if err := s.buildConfigSnapshotV2(name); err != nil {
+		defer s.deleteConfigSnapshotV2(name)
+		return err
+	}
+
+	return s.deleteConfigSnapshotV2(name)
 }
 
 func randomString(n int) string {

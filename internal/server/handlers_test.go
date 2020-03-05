@@ -1127,6 +1127,72 @@ func TestValidateSnapshotHandler(t *testing.T) {
 	}
 }
 
+func TestValidateSnapshotWithoutAccounts(t *testing.T) {
+	s, err := newTestServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(s.opts.DataDir)
+
+	ctx, done := context.WithTimeout(context.Background(), 2*time.Second)
+	defer done()
+	go s.Run(ctx)
+	defer func() {
+		s.Shutdown(ctx)
+		waitServerIsDone(t, ctx, s)
+	}()
+
+	waitServerIsReady(t, ctx, s)
+
+	host := fmt.Sprintf("http://%s:%d", s.opts.Host, s.opts.Port)
+
+	// Create permissions.
+	payload := `{
+         "publish": {
+           "allow": ["foo.*", "bar.>"]
+          },
+          "subscribe": {
+            "deny": ["quux"]
+          }
+        }`
+	resp, out, err := curl("PUT", host+"/v1/auth/perms/normal-user", []byte(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Create a couple of users
+	payload = `{
+          "username": "first-user",
+          "password": "secret",
+          "permissions": "normal-user",
+          "account": "foo"
+        }`
+	resp, _, err = curl("PUT", host+"/v1/auth/idents/first-user", []byte(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected error, got: %v", resp.StatusCode)
+	}
+
+	// Publish the snapshot and validate which should fail
+	resp, out, err = curl("POST", host+"/v2/auth/validate", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(out)
+	expected := "Error: account foo does not exist!\n"
+	if got != expected {
+		t.Fatalf("Expected %v, got: %v", expected, got)
+	}
+	if resp.StatusCode != 500 {
+		t.Fatalf("Expected server error, got: %v", resp.StatusCode)
+	}
+}
+
 func TestSnapshotWithNameHandler(t *testing.T) {
 	s, err := newTestServer()
 	if err != nil {
