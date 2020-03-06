@@ -145,7 +145,7 @@ NKEY:
 Certificate subject attributes with permissions:
 
 ```text
-{"username" : "CN=rt01.axon.sa.sandbox03.dev.mastercard.int,OU=SCSS", "permissions" : "normal_user"}
+{"username" : "CN=Application1,OU=SCSS", "permissions" : "normal_user"}
 ```
 
 ### Permission add/update payload
