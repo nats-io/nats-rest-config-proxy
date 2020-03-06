@@ -1,4 +1,4 @@
-[![License][License-Image]][License-Url][![Build][Build-Status-Image]][Build-Status-Url] [![Coverage Status](https://coveralls.io/repos/github/nats-io/nats-rest-config-proxy/badge.svg?branch=master&t=s8FTRY)](https://coveralls.io/github/nats-io/nats-rest-config-proxy?branch=master)[![Version](https://d25lcipzij17d.cloudfront.net/badge.svg?id=go&type=5&v=0.3.2)](https://github.com/nats-io/nats-rest-config-proxy/releases/tag/v0.3.2)
+[![License][License-Image]][License-Url][![Build][Build-Status-Image]][Build-Status-Url] [![Coverage Status](https://coveralls.io/repos/github/nats-io/nats-rest-config-proxy/badge.svg?branch=master&t=s8FTRY)](https://coveralls.io/github/nats-io/nats-rest-config-proxy?branch=master)[![Version](https://d25lcipzij17d.cloudfront.net/badge.svg?id=go&type=5&v=0.4.0)](https://github.com/nats-io/nats-rest-config-proxy/releases/tag/v0.4.0)
 
 # NATS REST Configuration Proxy
 
@@ -614,6 +614,90 @@ couple of variables that can be used as follow:
 
 ```conf
 include "config/current/accounts/auth.conf"
+```
+
+### Validation tool
+
+Release [v0.4.0](https://github.com/nats-io/nats-rest-config-proxy/releases/tag/v0.4.0) 
+also now includes a `nats-rest-config-validator` tool
+which can be used to verify whether the `resources` are in a valid state
+and otherwise report the error.
+
+```sh
+nats-rest-config-validator -h
+Usage: nats-rest-config-validator [options...]
+
+Options:
+    -d, --dir <directory>         Directory for storing data (default is the current directory.)
+    -h, --help                    Show this message
+    -v, --version                 Show version
+```
+
+For example given the following directory structure:
+
+```
+$ cd data/
+$ tree .
+.
+└── resources
+    ├── accounts
+    │   ├── bar.json
+    │   └── foo.json
+    ├── permissions
+    │   ├── admin.json
+    │   └── guest.json
+    └── users
+        ├── user1.json
+        ├── user2.json
+        └── user3.json
+```
+
+Where one of the defined permissions has an invalid subject:
+
+```
+==> resources/users/user2.json <==
+{
+  "username": "user2",
+  "password": "user2",
+  "permissions": "user2",
+  "account": "bar"
+}
+
+==> resources/permissions/user3.json <==
+{
+  "publish": {
+    "allow": [
+      "foo.*",
+    ]
+  },
+  "subscribe": {
+    "deny": [
+      ""
+    ]
+  }
+}
+```
+
+Running the tool would build the config and show on which account the error exists:
+
+```
+$ nats-rest-config-validator -d data
+
+Error: On /bar.json : {
+  "users": [
+    {
+      "username": "user2",
+      "password": "user2",
+      "permissions": {
+        "publish": {
+          "allow": [
+            "foo.*"
+          ]
+        },
+        "subscribe": {
+          "deny": [
+            "",
+            ^^^  subject "" is not a valid subject
 ```
 
 ## Our sponsor for this project
