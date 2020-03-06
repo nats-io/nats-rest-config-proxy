@@ -11,7 +11,8 @@ release:
   name_template: 'Release {{.Tag}}'
 
 builds:
--
+- id: nats-rest-config-proxy
+  main: ./cmd/nats-rest-config-proxy/main.go
   ldflags: -s -w
   binary: nats-rest-config-proxy
   env:
@@ -31,16 +32,30 @@ builds:
   ignore:
   - goos: darwin
     goarch: 386
+- id: nats-rest-config-validator
+  main: ./cmd/nats-rest-config-validator/main.go
+  ldflags: -s -w
+  binary: nats-rest-config-validator
+  env:
+    - CGO_ENABLED=0
+  goos:
+  - linux
+  - darwin
+  - windows
+  goarch:
+  - 386
+  - amd64
+  - arm
+  - arm64
+  goarm:
+  - 6
+  - 7
+  ignore:
+  - goos: darwin
+    goarch: 386
 
-
-archive:
- # replacements:
- #   darwin: Darwin
- #   linux: Linux
- #   windows: Windows
- #   386: 386
- #   amd64: x86_64
-  wrap_in_directory: true
+archives:
+- wrap_in_directory: true
   name_template: '{{ .ProjectName }}-v{{ .Version }}-{{ .Os }}-{{ .Arch }}{{ if .Arm
     }}v{{ .Arm }}{{ end }}'
   format: zip
@@ -62,8 +77,8 @@ changelog:
 github_urls:
   download: https://github.com
 
-nfpm:
-  formats:
+nfpms:
+- formats:
     - deb
   name_template: '{{ .ProjectName }}-v{{ .Version }}-{{ .Os }}-{{ .Arch }}{{ if .Arm
     }}v{{ .Arm }}{{ end }}'
