@@ -557,9 +557,25 @@ func mergeUserPermissions(a, b *api.Permissions) *api.Permissions {
 		return nil
 	}
 
-	publish := mergePermissionRules(a.Publish, b.Publish)
-	subscribe := mergePermissionRules(a.Subscribe, b.Subscribe)
+	var (
+		publish   *api.PermissionRules
+		subscribe *api.PermissionRules
+	)
+	if a.Publish == nil {
+		publish = b.Publish
+	} else if b.Publish == nil {
+		publish = a.Publish
+	} else {
+		publish = mergePermissionRules(a.Publish, b.Publish)
+	}
 
+	if a.Subscribe == nil {
+		subscribe = b.Subscribe
+	} else if b.Subscribe == nil {
+		subscribe = a.Subscribe
+	} else {
+		subscribe = mergePermissionRules(a.Subscribe, b.Subscribe)
+	}
 	return &api.Permissions{
 		Publish:   publish,
 		Subscribe: subscribe,
