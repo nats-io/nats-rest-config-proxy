@@ -189,6 +189,73 @@ func TestMergeDuplicateUsers(t *testing.T) {
 	}
 }
 
+func TestMergeDuplicateUsersMixedPermissions(t *testing.T) {
+	permA := &api.Permissions{
+		Publish: &api.PermissionRules{
+			Allow: []string{"a"},
+		},
+	}
+	permB := &api.Permissions{
+		Subscribe: &api.PermissionRules{
+			Allow: []string{"b"},
+		},
+	}
+	permAB := &api.Permissions{
+		Publish: &api.PermissionRules{
+			Allow: []string{"a"},
+		},
+		Subscribe: &api.PermissionRules{
+			Allow: []string{"b"},
+		},
+	}
+
+	cases := []struct {
+		name  string
+		users []*api.ConfigUser
+		want  []*api.ConfigUser
+	}{
+		{
+			name: "merge perm a and b",
+			users: []*api.ConfigUser{
+				{Username: "foo", Permissions: permA},
+				{Username: "foo", Permissions: permB},
+			},
+			want: []*api.ConfigUser{
+				{Username: "foo", Permissions: permAB},
+			},
+		},
+		{
+			name: "merge perm b and a",
+			users: []*api.ConfigUser{
+				{Username: "foo", Permissions: permB},
+				{Username: "foo", Permissions: permA},
+			},
+			want: []*api.ConfigUser{
+				{Username: "foo", Permissions: permAB},
+			},
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := mergeDuplicateUsers(c.users)
+			if !configUsersEqual(got, c.want) {
+				t.Errorf("Expected len %d, got len: %d", len(c.want), len(got))
+				t.Errorf("Expected %#v, got: %#v", c.want, got)
+				t.Error("--- got ---")
+				for i, u := range got {
+					t.Errorf("%d Username: %#v\n", i, u.Username)
+					t.Errorf("%d Password: %#v\n", i, u.Password)
+					t.Errorf("%d Nkey: %#v\n", i, u.Nkey)
+					t.Errorf("%d Permissions: %#v\n", i, u.Permissions)
+					t.Errorf("%d Publish: %#v\n", i, u.Permissions.Publish)
+					t.Errorf("%d Subscribe: %#v\n", i, u.Permissions.Subscribe)
+				}
+			}
+		})
+	}
+}
+
 func configUsersEqual(a, b []*api.ConfigUser) bool {
 	if len(a) != len(b) {
 		return false
