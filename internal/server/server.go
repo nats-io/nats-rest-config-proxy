@@ -193,7 +193,6 @@ func (s *Server) Shutdown(ctx context.Context) error {
 		if err != nil {
 			s.log.Errorf("Error closing http connections: %s", err)
 		}
-		return err
 	}
 	s.quit()
 
