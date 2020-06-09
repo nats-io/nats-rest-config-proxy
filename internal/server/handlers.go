@@ -841,6 +841,14 @@ func (s *Server) VerifySnapshot() error {
 	return s.deleteConfigSnapshotV2(name)
 }
 
+func (s *Server) TakeSnapshot(name string) error {
+	return s.buildConfigSnapshotV2(name)
+}
+
+func (s *Server) PublishSnapshot(name string) error {
+	return s.publishConfigSnapshotV2(name)
+}
+
 func randomString(n int) string {
 	a := 97
 	z := 122
@@ -911,7 +919,7 @@ func (s *Server) HandlePublishV2(w http.ResponseWriter, req *http.Request) {
 			s.log.Infof("Executing publish script %q", script)
 			err = cmd.Run()
 			s.log.Tracef("STDOUT: %s", stdout.String())
-			s.log.Tracef("STDERR: %s", stdout.String())
+			s.log.Tracef("STDERR: %s", stderr.String())
 			if err != nil {
 				status = http.StatusInternalServerError
 				return
