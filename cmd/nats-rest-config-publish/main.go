@@ -42,8 +42,8 @@ func main() {
 	flag.StringVar(&opts.DataDir, "data", ".", "Directory for storing data.")
 	flag.StringVar(&opts.DataDir, "dir", ".", "Directory for storing data.")
 	flag.StringVar(&opts.DataDir, "d", ".", "Directory for storing data.")
-	flag.StringVar(&snapshotName, "s", ".", "Snapshot of the configuration.")
-	flag.StringVar(&snapshotName, "snapshot", ".", "Snapshot of the configuration.")
+	flag.StringVar(&snapshotName, "s", "", "Snapshot of the configuration.")
+	flag.StringVar(&snapshotName, "snapshot", "", "Snapshot of the configuration.")
 	flag.StringVar(&publishScript, "f", "", "Path to an optional script to execute on publish")
 	flag.StringVar(&publishScript, "publish-script", "", "Path to an optional script to execute on publish")
 	flag.BoolVar(&showVersion, "v", false, "Show version.")
@@ -65,11 +65,15 @@ func main() {
 
 	if snapshotName == "" {
 		snapshotName = server.DefaultSnapshotName
+
+		// Publish latest config as is taking a snapshot too.
+		fmt.Printf("Taking %q snapshot...\n", snapshotName)
+		if err := s.TakeSnapshot(snapshotName); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+			os.Exit(1)
+		}
 	}
-	if err := s.TakeSnapshot(snapshotName); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
-		os.Exit(1)
-	}
+	fmt.Printf("Publishing %q snapshot\n", snapshotName)
 	if err := s.PublishSnapshot(snapshotName); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 		os.Exit(1)

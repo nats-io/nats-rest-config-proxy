@@ -298,6 +298,9 @@ func (s *Server) getConfigSnapshot(name string) ([]byte, error) {
 // publishConfigSnapshotV2
 func (s *Server) publishConfigSnapshotV2(name string) error {
 	from := filepath.Join(s.snapshotsDir(), name)
+	if _, err := os.Stat(from); err != nil && os.IsNotExist(err) {
+		return fmt.Errorf("Snapshot named %q does not exist!", name)
+	}
 	to := filepath.Join(s.currentConfigDir(), "accounts")
 
 	// First remove the contents of the folder in case there is anything.
