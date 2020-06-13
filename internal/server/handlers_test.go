@@ -1944,8 +1944,21 @@ echo 'Publishing script...' > ./artifact2.log
 	host := fmt.Sprintf("http://%s:%d", s.opts.Host, s.opts.Port)
 	createFixtures(t, host)
 
+	resp, rerr, err := curl("POST", host+"/v2/auth/publish?name=foo", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(rerr)
+	expected := "Error: Snapshot named \"foo\" does not exist!\n"
+	if got != expected {
+		t.Fatalf("\nExpected: %v,\n     Got: %v", expected, got)
+	}
+	if resp.StatusCode != 500 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
 	// Publish the config
-	resp, _, err := curl("POST", host+"/v2/auth/publish", []byte(""))
+	resp, _, err = curl("POST", host+"/v2/auth/publish", []byte(""))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1958,7 +1971,7 @@ echo 'Publishing script...' > ./artifact2.log
 		t.Fatal(err)
 	}
 
-	expected := `{
+	expected = `{
   "users": [
     {
       "username": "first-user",
@@ -1997,7 +2010,7 @@ echo 'Publishing script...' > ./artifact2.log
   ]
 }
 `
-	got := string(result)
+	got = string(result)
 	if got != expected {
 		t.Errorf("Expected: %q\nGot: %q", expected, got)
 	}

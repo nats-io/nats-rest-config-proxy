@@ -53,6 +53,48 @@ builds:
   ignore:
   - goos: darwin
     goarch: 386
+- id: nats-rest-config-publish
+  main: ./cmd/nats-rest-config-publish/main.go
+  ldflags: -s -w
+  binary: nats-rest-config-publish
+  env:
+    - CGO_ENABLED=0
+  goos:
+  - linux
+  - darwin
+  - windows
+  goarch:
+  - 386
+  - amd64
+  - arm
+  - arm64
+  goarm:
+  - 6
+  - 7
+  ignore:
+  - goos: darwin
+    goarch: 386
+- id: nats-rest-config-snapshot
+  main: ./cmd/nats-rest-config-snapshot/main.go
+  ldflags: -s -w
+  binary: nats-rest-config-snapshot
+  env:
+    - CGO_ENABLED=0
+  goos:
+  - linux
+  - darwin
+  - windows
+  goarch:
+  - 386
+  - amd64
+  - arm
+  - arm64
+  goarm:
+  - 6
+  - 7
+  ignore:
+  - goos: darwin
+    goarch: 386
 
 archives:
 - wrap_in_directory: true
