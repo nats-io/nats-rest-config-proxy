@@ -15,8 +15,8 @@ import (
 
 const usageStr = `
 Options:
-    -d, --dir <directory>         Directory for storing data (default is the current directory.)
-    -s, --snapshot <name>         Take snapshot of the configuration
+    -d, --dir <directory>         Directory for storing data (default: current directory.)
+    -s, --snapshot <name>         Snapshot of the configuration (default: latest configuration).
     -h, --help                    Show this message
     -v, --version                 Show version
 `
@@ -25,7 +25,7 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 
 	flag.Usage = func() {
-		fmt.Fprintln(os.Stderr, "Usage: nats-rest-config-snapshot [options...]")
+		fmt.Fprintln(os.Stderr, "Usage: nats-rest-config-publish [options...]")
 		fmt.Fprintln(os.Stderr, usageStr)
 	}
 
@@ -42,8 +42,8 @@ func main() {
 	flag.StringVar(&opts.DataDir, "data", ".", "Directory for storing data.")
 	flag.StringVar(&opts.DataDir, "dir", ".", "Directory for storing data.")
 	flag.StringVar(&opts.DataDir, "d", ".", "Directory for storing data.")
-	flag.StringVar(&snapshotName, "s", "", "Snapshot of the configuration.")
-	flag.StringVar(&snapshotName, "snapshot", "", "Snapshot of the configuration.")
+	flag.StringVar(&snapshotName, "s", "", "Snapshot of the configuration (default: latest configuration).")
+	flag.StringVar(&snapshotName, "snapshot", "", "Snapshot of the configuration (default: latest configuration).")
 	flag.StringVar(&publishScript, "f", "", "Path to an optional script to execute on publish")
 	flag.StringVar(&publishScript, "publish-script", "", "Path to an optional script to execute on publish")
 	flag.BoolVar(&showVersion, "v", false, "Show version.")
