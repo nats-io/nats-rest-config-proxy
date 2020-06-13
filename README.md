@@ -1,4 +1,4 @@
-[![License][License-Image]][License-Url][![Build][Build-Status-Image]][Build-Status-Url] [![Coverage Status](https://coveralls.io/repos/github/nats-io/nats-rest-config-proxy/badge.svg?branch=master&t=s8FTRY)](https://coveralls.io/github/nats-io/nats-rest-config-proxy?branch=master)[![Version](https://d25lcipzij17d.cloudfront.net/badge.svg?id=go&type=5&v=0.4.0)](https://github.com/nats-io/nats-rest-config-proxy/releases/tag/v0.4.0)
+[![License][License-Image]][License-Url][![Build][Build-Status-Image]][Build-Status-Url] [![Coverage Status](https://coveralls.io/repos/github/nats-io/nats-rest-config-proxy/badge.svg?branch=master&t=s8FTRY)](https://coveralls.io/github/nats-io/nats-rest-config-proxy?branch=master)[![Version](https://d25lcipzij17d.cloudfront.net/badge.svg?id=go&type=5&v=0.5.0)](https://github.com/nats-io/nats-rest-config-proxy/releases/tag/v0.5.0)
 
 # NATS REST Configuration Proxy
 
@@ -698,6 +698,37 @@ Error: On /bar.json : {
           "deny": [
             "",
             ^^^  subject "" is not a valid subject
+```
+
+### Snapshot/Publishing tool
+
+Release [v0.5.0](https://github.com/nats-io/nats-rest-config-proxy/releases/tag/v0.5.0) 
+includes a couple of tools to create and publish snapshots without having to start the server,
+the `nats-rest-config-snapshot` and `nats-rest-config-publish` tools.
+
+For example, first we can create a snapshot:
+
+```sh
+$ nats-rest-config-snapshot -d data --snapshot my-snapshot
+Taking "my-snapshot" snapshot...
+OK
+```
+
+And then publish it as well:
+
+```sh
+$ nats-rest-config-publish -d data --snapshot my-snapshot
+Publishing "my-snapshot" snapshot
+OK
+```
+
+By default in case no snapshot name was given, the tool will publish the latest configuration:
+
+```sh
+$ nats-rest-config-publish -d data
+Taking "latest" snapshot...
+Publishing "latest" snapshot
+OK
 ```
 
 ## Our sponsor for this project
