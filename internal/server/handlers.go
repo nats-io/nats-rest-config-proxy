@@ -247,13 +247,19 @@ func verifyIdent(users []*api.User, u *api.User) error {
 			continue
 		}
 
-		if user.Account != u.Account {
-			return fmt.Errorf("%s already exists in different account", u.Username)
+		if len(user.Username) > 0 && user.Account == u.Account {
+			return fmt.Errorf("%s already exists in different account", u.Username )
 		}
-
-		if user.Password != u.Password || user.Nkey != u.Nkey {
-			return fmt.Errorf("conflicting creds for user %s", u.Username)
+		if len(user.Password) > 0 {
+			if user.Password == u.Password {
+				return fmt.Errorf("conflicting password for user %s", u.Username)
 		}
+		}
+		if len(user.Nkey) > 0 {
+			if user.Nkey == u.Nkey {
+				return fmt.Errorf("conflicting Nkey for user %s", u.Username)
+		}
+	}
 	}
 
 	return nil
