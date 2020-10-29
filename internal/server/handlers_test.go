@@ -2032,41 +2032,50 @@ func TestVerifyIdent(t *testing.T) {
 		name  string
 		users []*api.User
 		u     *api.User
-		want  bool
+		wantErr  bool
 	}{
 		{
-			name:  "same user, same account",
+			name:  "same name, same account",
 			users: []*api.User{{Username: "foo", Account: "bar"}},
 			u:     &api.User{Username: "foo", Account: "bar"},
-			want:  false,
+			wantErr:  false,
 		},
 		{
-			name:  "same user, different account",
+			name:  "same name, different account",
 			users: []*api.User{{Username: "foo", Account: "bar"}},
 			u:     &api.User{Username: "foo", Account: "fizz"},
-			want:  true,
+			wantErr:  true,
 		},
 		{
-			name:  "same user, different passwords",
+			name:  "same name, different passwords",
 			users: []*api.User{{Username: "foo", Password: "bar"}},
 			u:     &api.User{Username: "foo", Password: "fizz"},
-			want:  true,
+			wantErr:  false,
 		},
 		{
-			name:  "same user, different creds",
+			name:  "same name, different creds",
 			users: []*api.User{{Username: "foo", Password: "bar"}},
 			u:     &api.User{Username: "foo", Nkey: "fizz"},
-			want:  true,
+			wantErr:  false,
+		},
+		{
+			name: "different accounts, different nkeys",
+			users: []*api.User{{Account: "foo", Nkey: "fizz"}},
+			u:     &api.User{Account: "bar", Nkey: "buzz"},
+			wantErr:  false,
 		},
 	}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			err := verifyIdent(c.users, c.u)
-			got := err != nil
 
-			if got != c.want {
-				t.Fatalf("Expected error: %t, got: %t", c.want, got)
+			gotErr := err != nil
+			if gotErr && !c.wantErr {
+				t.Error("unexpected error")
+				t.Fatalf("got=%s; want=nil", err)
+			} else if !gotErr && c.wantErr {
+				t.Fatal("unexpected ok")
 			}
 		})
 	}
