@@ -241,18 +241,18 @@ func (s *Server) HandleIdent(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func verifyIdent(users []*api.User, u *api.User) error {
-	for _, user := range users {
-		if user.Username != u.Username {
+func verifyIdent(existing []*api.User, nu *api.User) error {
+	for _, eu := range existing {
+		if eu.Username != nu.Username {
 			continue
 		}
+		// User is existing user.
 
-		if user.Account != u.Account {
-			return fmt.Errorf("%s already exists in different account", u.Username)
-		}
-
-		if user.Password != u.Password || user.Nkey != u.Nkey {
-			return fmt.Errorf("conflicting creds for user %s", u.Username)
+		// A user can only belong to one account. To move a user, delete the
+		// old user and create again. Since Usernames are optional, we need to
+		// only do this check if a Username was used.
+		if eu.Username != "" && eu.Account != nu.Account {
+			return fmt.Errorf("%q already exists in different account", nu.Username)
 		}
 	}
 
