@@ -1469,7 +1469,6 @@ func TestVerifyAuthWorks(t *testing.T) {
 			if got := rr.Code; got != expected {
 				t.Errorf("Expected %v, got: %v", expected, got)
 			}
-			// fmt.Println(rr.Body.String())
 		})
 	}
 }
@@ -2029,40 +2028,40 @@ echo 'Publishing script...' > ./artifact2.log
 
 func TestVerifyIdent(t *testing.T) {
 	cases := []struct {
-		name  string
-		users []*api.User
-		u     *api.User
-		wantErr  bool
+		name    string
+		users   []*api.User
+		u       *api.User
+		wantErr bool
 	}{
 		{
-			name:  "same name, same account",
-			users: []*api.User{{Username: "foo", Account: "bar"}},
-			u:     &api.User{Username: "foo", Account: "bar"},
-			wantErr:  false,
+			name:    "same name, same account",
+			users:   []*api.User{{Username: "foo", Account: "bar"}},
+			u:       &api.User{Username: "foo", Account: "bar"},
+			wantErr: false,
 		},
 		{
-			name:  "same name, different account",
-			users: []*api.User{{Username: "foo", Account: "bar"}},
-			u:     &api.User{Username: "foo", Account: "fizz"},
-			wantErr:  true,
+			name:    "same name, different account",
+			users:   []*api.User{{Username: "foo", Account: "bar"}},
+			u:       &api.User{Username: "foo", Account: "fizz"},
+			wantErr: true,
 		},
 		{
-			name:  "same name, different passwords",
-			users: []*api.User{{Username: "foo", Password: "bar"}},
-			u:     &api.User{Username: "foo", Password: "fizz"},
-			wantErr:  false,
+			name:    "same name, different passwords",
+			users:   []*api.User{{Username: "foo", Password: "bar"}},
+			u:       &api.User{Username: "foo", Password: "fizz"},
+			wantErr: false,
 		},
 		{
-			name:  "same name, different creds",
-			users: []*api.User{{Username: "foo", Password: "bar"}},
-			u:     &api.User{Username: "foo", Nkey: "fizz"},
-			wantErr:  false,
+			name:    "same name, different creds",
+			users:   []*api.User{{Username: "foo", Password: "bar"}},
+			u:       &api.User{Username: "foo", Nkey: "fizz"},
+			wantErr: false,
 		},
 		{
-			name: "different accounts, different nkeys",
-			users: []*api.User{{Account: "foo", Nkey: "fizz"}},
-			u:     &api.User{Account: "bar", Nkey: "buzz"},
-			wantErr:  false,
+			name:    "different accounts, different nkeys",
+			users:   []*api.User{{Account: "foo", Nkey: "fizz"}},
+			u:       &api.User{Account: "bar", Nkey: "buzz"},
+			wantErr: false,
 		},
 	}
 
@@ -2078,5 +2077,425 @@ func TestVerifyIdent(t *testing.T) {
 				t.Fatal("unexpected ok")
 			}
 		})
+	}
+}
+
+func TestAccountsJetStreamHandler(t *testing.T) {
+	s, err := newTestServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(s.opts.DataDir)
+
+	ctx, done := context.WithTimeout(context.Background(), 2*time.Second)
+	defer done()
+	go s.Run(ctx)
+	defer s.Shutdown(ctx)
+	waitServerIsReady(t, ctx, s)
+
+	intPtr := func(n int64) *int64 {
+		return &n
+	}
+
+	// The order in the following tests is important since there
+	// is state dependent from each other.
+	host := fmt.Sprintf("http://%s:%d", s.opts.Host, s.opts.Port)
+	for _, test := range []struct {
+		name     string
+		account  string
+		payload  string
+		expected *api.Account
+		err      error
+	}{
+		{
+			"create js1 account with jetstream using defaults",
+			"js1",
+			`{
+                           "jetstream": {}
+                        }`,
+			&api.Account{
+				JetStream: &api.AccountJetStreamConfig{},
+			},
+			nil,
+		},
+		{
+			"create js2 account with jetstream using defaults with explicit enable",
+			"js2",
+			`{
+                           "jetstream": {
+                             "enabled": true
+                           }
+                        }`,
+			&api.Account{
+				JetStream: &api.AccountJetStreamConfig{
+					Enabled: true,
+				},
+			},
+			nil,
+		},
+		{
+			"create js3 account with jetstream and explicit limits",
+			"js3",
+			`{
+                           "jetstream": {
+                             "enabled": true,
+                             "max_mem": 536870912,
+                             "max_file": 536870912,
+                             "max_consumers": 200,
+                             "max_streams": 300
+                           }
+                        }`,
+			&api.Account{
+				JetStream: &api.AccountJetStreamConfig{
+					true,
+					api.AccountJetStream{
+						MaxMemoryStore: intPtr(536870912),
+						MaxFileStore:   intPtr(536870912),
+						MaxConsumers:   intPtr(200),
+						MaxStreams:     intPtr(300),
+					},
+				},
+			},
+			nil,
+		},
+		{
+			"create js4 account with jetstream and explicit limits always enables",
+			"js4",
+			`{
+                           "jetstream": {
+                             "enabled": false,
+                             "max_mem": 536870912,
+                             "max_file": 536870912,
+                             "max_consumers": 200,
+                             "max_streams": 300
+                           }
+                        }`,
+			&api.Account{
+				JetStream: &api.AccountJetStreamConfig{
+					true,
+					api.AccountJetStream{
+						MaxMemoryStore: intPtr(536870912),
+						MaxFileStore:   intPtr(536870912),
+						MaxConsumers:   intPtr(200),
+						MaxStreams:     intPtr(300),
+					},
+				},
+			},
+			nil,
+		},
+		{
+			"create js5 account with jetstream and unlimited consumers and no streams",
+			"js5",
+			`{
+                           "jetstream": {
+                             "max_consumers": -1,
+                             "max_streams": 0
+                           }
+                        }`,
+			&api.Account{
+				JetStream: &api.AccountJetStreamConfig{
+					true,
+					api.AccountJetStream{
+						MaxConsumers: intPtr(-1),
+						MaxStreams:   intPtr(0),
+					},
+				},
+			},
+			nil,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			resp, body, err := curl("PUT", host+"/v1/auth/accounts/"+test.account, []byte(test.payload))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if test.err != nil {
+				if resp.StatusCode == 200 {
+					t.Fatalf("Expected error, got success")
+				}
+				got := string(body)
+				expected := test.err.Error() + "\n"
+				if got != expected {
+					t.Errorf("\nExpected: %+v\n     Got: %+v", expected, got)
+				}
+
+				return
+			}
+
+			if resp.StatusCode != 200 {
+				t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+			}
+			acc, err := s.getAccountResource(test.account)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(test.expected, acc) {
+				t.Errorf("Expected: %+v\nGot: %+v", test.expected, acc)
+			}
+		})
+	}
+
+	// Create a user in each of the accounts.
+	t.Run("publishing with multiple users using v2 endpoint", func(t *testing.T) {
+		accounts := []string{"js1", "js2", "js3", "js4", "js5", ""}
+		for _, acc := range accounts {
+			var username string
+			if acc == "" {
+				username = "global-user"
+			} else {
+				username = fmt.Sprintf("%s-user", acc)
+			}
+
+			payload := `{
+	                          "username": "%s",
+	                          "password": "secret",
+	                          "account": "%s"
+	                        }`
+			payload = fmt.Sprintf(payload, username, acc)
+
+			endpoint := fmt.Sprintf("%s/v1/auth/idents/%s", host, username)
+			resp, _, err := curl("PUT", endpoint, []byte(payload))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if resp.StatusCode != 200 {
+				t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+			}
+		}
+
+		// Create a Snapshot
+		resp, _, err := curl("POST", host+"/v2/auth/snapshot?name=v1", []byte(""))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != 200 {
+			t.Errorf("Expected OK, got: %v", resp.StatusCode)
+		}
+
+		// Publish a named snapshot
+		resp, _, err = curl("POST", host+"/v2/auth/publish?name=v1", []byte(""))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != 200 {
+			t.Errorf("Expected OK, got: %v", resp.StatusCode)
+		}
+
+		// js1 account
+		contents, err := ioutil.ReadFile(filepath.Join(s.opts.DataDir, "current", "accounts", "js1.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		expected := `{
+  "users": [
+    {
+      "username": "js1-user",
+      "password": "secret"
+    }
+  ],
+  "jetstream": {}
+}
+`
+		got := string(contents)
+		if got != expected {
+			t.Errorf("Expected: %q\nGot: %q", expected, got)
+		}
+
+		// js2 account
+		contents, err = ioutil.ReadFile(filepath.Join(s.opts.DataDir, "current", "accounts", "js2.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		expected = `{
+  "users": [
+    {
+      "username": "js2-user",
+      "password": "secret"
+    }
+  ],
+  "jetstream": {}
+}
+`
+		got = string(contents)
+		if got != expected {
+			t.Errorf("Expected: %q\nGot: %q", expected, got)
+		}
+
+		contents, err = ioutil.ReadFile(filepath.Join(s.opts.DataDir, "current", "accounts", "js3.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		expected = `{
+  "users": [
+    {
+      "username": "js3-user",
+      "password": "secret"
+    }
+  ],
+  "jetstream": {
+    "max_mem": 536870912,
+    "max_file": 536870912,
+    "max_streams": 300,
+    "max_consumers": 200
+  }
+}
+`
+		got = string(contents)
+		if got != expected {
+			t.Errorf("Expected: %q\nGot: %q", expected, got)
+		}
+
+		contents, err = ioutil.ReadFile(filepath.Join(s.opts.DataDir, "current", "accounts", "js4.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		expected = `{
+  "users": [
+    {
+      "username": "js4-user",
+      "password": "secret"
+    }
+  ],
+  "jetstream": {
+    "max_mem": 536870912,
+    "max_file": 536870912,
+    "max_streams": 300,
+    "max_consumers": 200
+  }
+}
+`
+		got = string(contents)
+		if got != expected {
+			t.Errorf("Expected: %q\nGot: %q", expected, got)
+		}
+
+		contents, err = ioutil.ReadFile(filepath.Join(s.opts.DataDir, "current", "accounts", "js5.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		expected = `{
+  "users": [
+    {
+      "username": "js5-user",
+      "password": "secret"
+    }
+  ],
+  "jetstream": {
+    "max_streams": 0,
+    "max_consumers": -1
+  }
+}
+`
+		got = string(contents)
+		if got != expected {
+			t.Errorf("Expected: %q\nGot: %q", expected, got)
+		}
+	})
+
+	t.Run("get all accounts", func(t *testing.T) {
+		resp, body, err := curl("GET", host+"/v1/auth/accounts/", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != 200 {
+			t.Errorf("Expected OK, got: %v", resp.StatusCode)
+		}
+
+		expected := 5
+		var got []interface{}
+		if err := json.Unmarshal(body, &got); err != nil {
+			t.Fatal(err)
+		}
+
+		if len(got) != expected {
+			t.Errorf("Expected: %+v\nGot: %+v", expected, len(got))
+		}
+	})
+
+	t.Run("get one account", func(t *testing.T) {
+		resp, _, err := curl("GET", host+"/v1/auth/accounts/js1", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != 200 {
+			t.Errorf("Expected OK, got: %v", resp.StatusCode)
+		}
+
+		resp, _, err = curl("GET", host+"/v1/auth/accounts/notexist", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != 404 {
+			t.Errorf("Expected Not Found, got: %v", resp.StatusCode)
+		}
+	})
+
+	// Publish and snapshot with the new structure
+	resp, _, err := curl("POST", host+"/v2/auth/snapshot?name=new", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Errorf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	resp, _, err = curl("POST", host+"/v2/auth/publish?name=new", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Errorf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	resp, _, err = curl("DELETE", host+"/v2/auth/snapshot?name=new", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Errorf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	resp, _, err = curl("POST", host+"/v2/auth/publish", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Errorf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Can't delete account because users are using it.
+	resp, _, err = curl("DELETE", host+"/v1/auth/accounts/js1", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 409 {
+		t.Errorf("Expected Conflict, got: %v", resp.StatusCode)
+	}
+
+	// Delete all users.
+	resp, _, err = curl("DELETE", host+"/v1/auth/idents", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Errorf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Now we can delete the acocunt.
+	resp, _, err = curl("DELETE", host+"/v1/auth/accounts/js1", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Errorf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Method not allowed
+	resp, _, err = curl("HEAD", host+"/v1/auth/accounts/js1", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 405 {
+		t.Errorf("Expected Method Not Allowed, got: %v", resp.StatusCode)
 	}
 }
