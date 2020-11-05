@@ -913,7 +913,6 @@ func TestFullCycleWithAccountsJetStream(t *testing.T) {
 		t.Fatal("Timed out waiting for server to stop")
 	}
 
-	// TODO(jaime): Not sure if this is ok.
 	config := `
           jetstream: true
           # Load the generated accounts.
@@ -934,7 +933,6 @@ func TestFullCycleWithAccountsJetStream(t *testing.T) {
 	if !natsd.JetStreamEnabled() {
 		t.Fatal("nats-server doesn't have jetstream enabled")
 	}
-	//fmt.Printf("USER: %#v\n", natsdOpts.Users[1].Account)
 
 	errCh := make(chan error, 2)
 	ncA, err := nats.Connect("nats://js-dyn-user:secret@127.0.0.1:4222",
@@ -978,6 +976,23 @@ func TestFullCycleWithAccountsJetStream(t *testing.T) {
 	if bytes.Contains(msg.Data, []byte("not enabled")) {
 		t.Fatal("account should have jetstream enabled")
 	}
+	got := string(msg.Data)
+	expected := `{
+  "type": "io.nats.jetstream.api.v1.account_info_response",
+  "memory": 0,
+  "storage": 0,
+  "streams": 0,
+  "limits": {
+    "max_memory": -1,
+    "max_storage": -1,
+    "max_streams": -1,
+    "max_consumers": -1
+  }
+}`
+	if got != expected {
+		t.Fatalf("Expected %+v, got: %+v", expected, got)
+	}
+
 	msg, err = ncB.Request("$JS.API.INFO", []byte("."), 1*time.Second)
 	if err != nil {
 		t.Fatal(err)
@@ -985,6 +1000,23 @@ func TestFullCycleWithAccountsJetStream(t *testing.T) {
 	if bytes.Contains(msg.Data, []byte("not enabled")) {
 		t.Fatal("account should have jetstream enabled")
 	}
+	got = string(msg.Data)
+	expected = `{
+  "type": "io.nats.jetstream.api.v1.account_info_response",
+  "memory": 0,
+  "storage": 0,
+  "streams": 0,
+  "limits": {
+    "max_memory": 1024,
+    "max_storage": 1024,
+    "max_streams": 3,
+    "max_consumers": 2
+  }
+}`
+	if got != expected {
+		t.Fatalf("Expected %+v, got: %+v", expected, got)
+	}
+
 	msg, err = ncC.Request("$JS.API.INFO", []byte("."), 1*time.Second)
 	if err != nil {
 		t.Fatal(err)

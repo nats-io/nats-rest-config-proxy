@@ -1,4 +1,4 @@
-[![License][License-Image]][License-Url][![Build][Build-Status-Image]][Build-Status-Url] [![Coverage Status](https://coveralls.io/repos/github/nats-io/nats-rest-config-proxy/badge.svg?branch=master&t=s8FTRY)](https://coveralls.io/github/nats-io/nats-rest-config-proxy?branch=master)[![Version](https://d25lcipzij17d.cloudfront.net/badge.svg?id=go&type=5&v=0.5.0)](https://github.com/nats-io/nats-rest-config-proxy/releases/tag/v0.5.0)
+[![License][License-Image]][License-Url][![Build][Build-Status-Image]][Build-Status-Url] [![Coverage Status](https://coveralls.io/repos/github/nats-io/nats-rest-config-proxy/badge.svg?branch=master&t=s8FTRY)](https://coveralls.io/github/nats-io/nats-rest-config-proxy?branch=master)[![Version](https://d25lcipzij17d.cloudfront.net/badge.svg?id=go&type=5&v=0.6.0)](https://github.com/nats-io/nats-rest-config-proxy/releases/tag/v0.6.0)
 
 # NATS REST Configuration Proxy
 
@@ -234,6 +234,34 @@ curl http://127.0.0.1:4567/v1/auth/idents/sample-user
 curl -X PUT http://127.0.0.1:4567/v1/auth/accounts/sample-account -d '{}'
 ```
 
+#### Create/update an account with jetstream support
+
+Create an account with JetStream support enabled with 10GB file storage and 1GB memory,
+as well as infinite streams and consumers.
+
+```bash
+curl -X PUT http://127.0.0.1:4567/v1/auth/accounts/sample-account -d '{
+  "jetstream": {
+    "max_memory": 1073741824,
+    "max_file": 10737418240,
+    "max_streams": -1,
+    "max_consumers": -1
+  }
+}'
+```
+
+Note that in order to use JetStream you need enable it outside of the auth configuration,
+for example after publishing.
+
+```hcl
+jetstream {
+  max_file = 20GB
+  max_mem = 2GB
+}
+
+include 'auth.conf'
+```
+
 #### Get an account
 
 ```bash
@@ -255,7 +283,7 @@ curl -X POST http://127.0.0.1:4567/v1/auth/snapshot?name=snap1
 #### Publish snapshot
 
 ```bash
-curl -X POST http://127.0.0.1:4567/v1/auth/publish?name=snap1
+curl -X POST http://127.0.0.1:4567/v2/auth/publish?name=snap1
 ```
 
 ## Usage Walkthrough
@@ -315,7 +343,7 @@ curl -X PUT http://127.0.0.1:4567/v1/auth/idents/acme-user -d '{
 We now can create a named snapshot for this setup. Let's create one named `v1`:
 
 ```sh
-curl -X POST http://127.0.0.1:4567/v1/auth/snapshot?name=v1
+curl -X POST http://127.0.0.1:4567/v2/auth/snapshot?name=v1
 ```
 
 Then publish the configuration:
