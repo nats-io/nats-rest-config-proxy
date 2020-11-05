@@ -14,7 +14,7 @@ import (
 
 	"github.com/nats-io/nats-rest-config-proxy/internal/server"
 	gnatsd "github.com/nats-io/nats-server/v2/test"
-	"github.com/nats-io/nats.go"
+	nats "github.com/nats-io/nats.go"
 )
 
 func waitServerIsReady(t *testing.T, ctx context.Context, host string) {
@@ -792,5 +792,204 @@ func TestFullCycleWithAccountsImportsExports(t *testing.T) {
 	expected = "PONG"
 	if got != expected {
 		t.Fatalf("Expected %+v, got: %+v", expected, got)
+	}
+}
+
+func TestFullCycleWithAccountsJetStream(t *testing.T) {
+	// Create a data directory.
+	opts := DefaultOptions()
+	opts.DataDir = "./data-accounts-imports"
+	s := server.NewServer(opts)
+	host := fmt.Sprintf("http://%s:%d", opts.Host, opts.Port)
+	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	time.AfterFunc(2*time.Second, func() {
+		s.Shutdown(ctx)
+		waitServerIsDone(t, ctx, host)
+	})
+	done := make(chan struct{})
+	go func() {
+		s.Run(ctx)
+		done <- struct{}{}
+	}()
+	waitServerIsReady(t, ctx, host)
+
+	resp, _, err := curl("PUT", host+"/v1/auth/accounts/js-dyn", []byte(`{
+		"jetstream": {"enabled": true}
+	}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	resp, _, err = curl("PUT", host+"/v1/auth/accounts/js-exp", []byte(`{
+          "jetstream": {
+			 "max_mem": 1024,
+			 "max_file": 1024,
+			 "max_consumers": 2,
+			 "max_streams": 3
+		  }
+        }`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	resp, _, err = curl("PUT", host+"/v1/auth/accounts/no-js", []byte(`{}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Create a couple of users
+	payload := `{
+	  "username": "js-dyn-user",
+	  "password": "secret",
+	  "permissions": "normal-user",
+	  "account": "js-dyn"
+	}`
+	resp, _, err = curl("PUT", host+"/v1/auth/idents/js-dyn-user", []byte(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	payload = `{
+	  "username": "js-exp-user",
+	  "password": "secret",
+	  "permissions": "normal-user",
+	  "account": "js-exp"
+	}`
+	resp, _, err = curl("PUT", host+"/v1/auth/idents/js-exp-user", []byte(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	payload = `{
+	  "username": "no-js-user",
+	  "password": "secret",
+	  "permissions": "normal-user",
+	  "account": "no-js"
+	}`
+	resp, _, err = curl("PUT", host+"/v1/auth/idents/no-js-user", []byte(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Create a snapshot.
+	resp, _, err = curl("POST", host+"/v2/auth/snapshot?name=with-accounts", []byte(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Publish a named snapshot.
+	resp, _, err = curl("POST", host+"/v2/auth/publish?name=with-accounts", []byte(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timed out waiting for server to stop")
+	}
+
+	// TODO(jaime): Not sure if this is ok.
+	config := `
+          jetstream: true
+          # Load the generated accounts.
+          include "accounts/auth.conf"
+        `
+
+	err = ioutil.WriteFile("./data-accounts-imports/current/main.conf", []byte(config), 0666)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	natsd, _ := gnatsd.RunServerWithConfig("./data-accounts-imports/current/main.conf")
+	if natsd == nil {
+		t.Fatal("Unexpected error starting a configured NATS server")
+	}
+	defer natsd.Shutdown()
+
+	if !natsd.JetStreamEnabled() {
+		t.Fatal("nats-server doesn't have jetstream enabled")
+	}
+	//fmt.Printf("USER: %#v\n", natsdOpts.Users[1].Account)
+
+	errCh := make(chan error, 2)
+	ncA, err := nats.Connect("nats://js-dyn-user:secret@127.0.0.1:4222",
+		nats.ErrorHandler(func(_ *nats.Conn, _ *nats.Subscription, err error) {
+			errCh <- err
+		}),
+		nats.UseOldRequestStyle(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ncA.Close()
+
+	ncB, err := nats.Connect("nats://js-exp-user:secret@127.0.0.1:4222",
+		nats.ErrorHandler(func(_ *nats.Conn, _ *nats.Subscription, err error) {
+			errCh <- err
+		}),
+		nats.UseOldRequestStyle(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ncB.Close()
+
+	ncC, err := nats.Connect("nats://no-js-user:secret@127.0.0.1:4222",
+		nats.ErrorHandler(func(_ *nats.Conn, _ *nats.Subscription, err error) {
+			errCh <- err
+		}),
+		nats.UseOldRequestStyle(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ncC.Close()
+
+	// Check JetStream enabled status.
+	msg, err := ncA.Request("$JS.API.INFO", []byte("."), 1*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(msg.Data, []byte("not enabled")) {
+		t.Fatal("account should have jetstream enabled")
+	}
+	msg, err = ncB.Request("$JS.API.INFO", []byte("."), 1*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(msg.Data, []byte("not enabled")) {
+		t.Fatal("account should have jetstream enabled")
+	}
+	msg, err = ncC.Request("$JS.API.INFO", []byte("."), 1*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(msg.Data, []byte("not enabled")) {
+		t.Fatal("account should not have jetstream enabled")
 	}
 }
