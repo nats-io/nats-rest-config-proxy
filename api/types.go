@@ -101,6 +101,9 @@ type Account struct {
 
 	// Imports are the imports from this account.
 	Imports []*Import `json:"imports,omitempty"`
+
+	// JetStream enables the JS config.
+	JetStream *AccountJetStreamConfig `json:"jetstream,omitempty"`
 }
 
 // AsJSON returns a byte slice of the type.
@@ -122,6 +125,19 @@ type Import struct {
 	Stream       *GenericImport `json:"stream,omitempty"`
 	StreamPrefix string         `json:"prefix,omitempty"`
 	ServiceTo    string         `json:"to,omitempty"`
+}
+
+// AccountJetStreamConfig maps to the NATS Config.
+type AccountJetStream struct {
+	MaxMemoryStore *int64 `json:"max_mem,omitempty"`
+	MaxFileStore   *int64 `json:"max_file,omitempty"`
+	MaxStreams     *int64 `json:"max_streams,omitempty"`
+	MaxConsumers   *int64 `json:"max_consumers,omitempty"`
+}
+
+type AccountJetStreamConfig struct {
+	Enabled          bool `json:"enabled,omitempty"`
+	AccountJetStream `json:",inline"`
 }
 
 // GenericImport

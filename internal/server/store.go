@@ -370,12 +370,12 @@ func (s *Server) buildConfigSnapshot(name string) error {
 				if err != nil {
 					return err
 				}
-
 				ausers := make([]*api.ConfigUser, 0)
 				account = &api.Account{
-					Users:   ausers,
-					Exports: acc.Exports,
-					Imports: acc.Imports,
+					Users:     ausers,
+					Exports:   acc.Exports,
+					Imports:   acc.Imports,
+					JetStream: acc.JetStream,
 				}
 				accounts[u.Account] = account
 			}
@@ -479,6 +479,12 @@ func (s *Server) buildConfigSnapshotV2(snapshotName string) error {
 	var authContent string
 	for accName, account := range accounts {
 		account.Users = mergeDuplicateUsers(account.Users)
+
+		if account.JetStream != nil && account.JetStream.Enabled {
+			// NOTE: We are disabling here in order to prevent
+			// enabled field from becoming part of the NATS config.
+			account.JetStream.Enabled = false
+		}
 
 		// Store each one of the accounts here.
 		acc, err := account.AsJSON()

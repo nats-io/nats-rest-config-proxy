@@ -561,6 +561,7 @@ func (s *Server) HandleAccounts(w http.ResponseWriter, req *http.Request) {
 		// Verify imports and exports and prevent bad requests.
 		hasExports := a.Exports != nil
 		hasImports := a.Imports != nil
+		hasJetStream := a.JetStream != nil
 		if hasExports {
 			// Check whether the exports have explicitly defined with
 			// which accounts the stream/service can be shared.
@@ -648,6 +649,17 @@ func (s *Server) HandleAccounts(w http.ResponseWriter, req *http.Request) {
 					status = http.StatusBadRequest
 					return
 				}
+			}
+		}
+
+		if hasJetStream {
+			hasExplicitLimits := a.JetStream.MaxMemoryStore != nil ||
+				a.JetStream.MaxFileStore != nil  ||
+				a.JetStream.MaxStreams != nil ||
+				a.JetStream.MaxConsumers != nil
+
+			if !a.JetStream.Enabled && hasExplicitLimits {
+				a.JetStream.Enabled = true
 			}
 		}
 
