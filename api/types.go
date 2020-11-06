@@ -68,6 +68,9 @@ type Permissions struct {
 
 	// Subscribe are the subscriber permissions.
 	Subscribe *PermissionRules `json:"subscribe,omitempty"`
+
+	// Responses are response rules permissions.
+	Responses *ResponseRules `json:"allow_responses,omitempty"`
 }
 
 // AsJSON returns a byte slice of the type.
@@ -80,6 +83,12 @@ func (p *Permissions) AsJSON() ([]byte, error) {
 type PermissionRules struct {
 	Allow []string `json:"allow,omitempty"`
 	Deny  []string `json:"deny,omitempty"`
+}
+
+// ResponseRules represents the reponse permissions.
+type ResponseRules struct {
+	Max     int    `json:"max,omitempty"`
+	Expires string `json:"expires,omitempty"`
 }
 
 // ConfigUser is a user as it will be represented in the
