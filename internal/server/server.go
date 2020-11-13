@@ -171,6 +171,7 @@ func (s *Server) ListenAndServe(addr string) error {
 	mux.HandleFunc("/v2/auth/validate/", s.HandleValidateSnapshotV2)
 	mux.HandleFunc("/v2/auth/publish", s.HandlePublishV2)
 	mux.HandleFunc("/v2/auth/publish/", s.HandlePublishV2)
+	mux.HandleFunc("/v2/auth/jetstream", s.HandleGlobalJetStream)
 	srv := &http.Server{
 		Addr:           addr,
 		Handler:        mux,

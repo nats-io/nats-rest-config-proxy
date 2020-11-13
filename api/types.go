@@ -149,6 +149,11 @@ type AccountJetStreamConfig struct {
 	AccountJetStream `json:",inline"`
 }
 
+type GlobalJetStream struct {
+	StoreDir string `json:"store_dir,omitempty"`
+	AccountJetStream `json:",inline"`
+}
+
 // GenericImport
 type GenericImport struct {
 	Account string `json:"account,omitempty"`
