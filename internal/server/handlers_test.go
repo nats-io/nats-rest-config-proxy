@@ -2499,3 +2499,165 @@ func TestAccountsJetStreamHandler(t *testing.T) {
 		t.Errorf("Expected Method Not Allowed, got: %v", resp.StatusCode)
 	}
 }
+
+func TestHandleGlobalJetStream(t *testing.T) {
+	s, err := newTestServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(s.opts.DataDir)
+
+	ctx, done := context.WithTimeout(context.Background(), 2*time.Second)
+	defer done()
+	go s.Run(ctx)
+	defer s.Shutdown(ctx)
+	waitServerIsReady(t, ctx, s)
+
+	intPtr := func(n int64) *int64 {
+		return &n
+	}
+	_ = intPtr
+
+	host := fmt.Sprintf("http://%s:%d", s.opts.Host, s.opts.Port)
+	jsEndpoint := fmt.Sprintf("%s/v2/auth/jetstream", host)
+	snapshotEndpoint := fmt.Sprintf("%s/v2/auth/snapshot?name=t1", host)
+	publishEndpoint := fmt.Sprintf("%s/v2/auth/publish?name=t1", host)
+
+	jsConf := filepath.Join(s.opts.DataDir, "current", "accounts", "jetstream.json")
+	accConf := filepath.Join(s.opts.DataDir, "current", "accounts", "auth.conf")
+
+	jsBlock := "jetstream {\n  include \"jetstream.json\"\n}\n"
+
+	// The order in the following tests is important since there
+	// is state dependent from each other.
+	t.Run("enable jetstream with defaults", func(t *testing.T) {
+		if _, _, err := curl("PUT", jsEndpoint, []byte(`{}`)); err != nil {
+			t.Fatal(err)
+		}
+
+		if _, _, err := curl("POST", snapshotEndpoint, nil); err != nil {
+			t.Fatal(err)
+		}
+		if _, _, err := curl("POST", publishEndpoint, nil); err != nil {
+			t.Fatal(err)
+		}
+
+		data, err := ioutil.ReadFile(jsConf)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got, want := string(data), "{}\n"; got != want {
+			t.Error("unexpected jetstream data")
+			t.Fatalf("got=%s; want=%s", got, want)
+		}
+
+		data, err = ioutil.ReadFile(accConf)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := string(data); !strings.Contains(got, jsBlock) {
+			t.Error("unexpected auth.conf")
+			t.Fatalf("got=%s; wantContain=%s", got, jsBlock)
+		}
+	})
+
+	t.Run("enable jetstream with custom opts", func(t *testing.T) {
+		conf := `{
+		  "store_dir": "/data/nats-server",
+		  "max_memory": 1073741824,
+		  "max_file": 10737418240,
+		  "max_streams": -1,
+		  "max_consumers": -1
+		}`
+		if _, _, err := curl("PUT", jsEndpoint, []byte(conf)); err != nil {
+			t.Fatal(err)
+		}
+
+		if _, _, err := curl("POST", snapshotEndpoint, nil); err != nil {
+			t.Fatal(err)
+		}
+		if _, _, err := curl("POST", publishEndpoint, nil); err != nil {
+			t.Fatal(err)
+		}
+
+		data, err := ioutil.ReadFile(jsConf)
+		if err != nil {
+			t.Fatal(err)
+		}
+		wantConf := `{
+  "store_dir": "/data/nats-server",
+  "max_file": 10737418240,
+  "max_streams": -1,
+  "max_consumers": -1
+}
+`
+		if got, want := string(data), wantConf; got != want {
+			t.Error("unexpected jetstream data")
+			t.Fatalf("got=%q; want=%q", got, want)
+		}
+
+		data, err = ioutil.ReadFile(accConf)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := string(data); !strings.Contains(got, jsBlock) {
+			t.Error("unexpected auth.conf")
+			t.Fatalf("got=%s; wantContain=%s", got, jsBlock)
+		}
+	})
+
+	t.Run("disable jetstream", func(t *testing.T) {
+		if _, _, err := curl("DELETE", jsEndpoint, nil); err != nil {
+			t.Fatal(err)
+		}
+
+		if _, _, err := curl("DELETE", snapshotEndpoint, nil); err != nil {
+			t.Fatal(err)
+		}
+		if _, _, err := curl("POST", snapshotEndpoint, nil); err != nil {
+			t.Fatal(err)
+		}
+		if _, _, err := curl("POST", publishEndpoint, nil); err != nil {
+			t.Fatal(err)
+		}
+
+		data, err := ioutil.ReadFile(jsConf)
+		if err == nil {
+			t.Fatal("unexpected success, want not exists error")
+		}
+
+		data, err = ioutil.ReadFile(accConf)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := string(data); strings.Contains(got, jsBlock) {
+			t.Error("unexpected auth.conf")
+			t.Fatalf("got=%s", got)
+		}
+	})
+
+	t.Run("delete non-existing jetstream", func(t *testing.T) {
+		if res, _, err := curl("DELETE", jsEndpoint, nil); err != nil {
+			t.Fatal(err)
+		} else if got, want := res.StatusCode, http.StatusNotFound; got != want {
+			t.Error("unexpected error code")
+			t.Fatalf("got=%d; want=%d", got, want)
+		}
+	})
+	t.Run("invalid method", func(t *testing.T) {
+		if res, _, err := curl("POST", jsEndpoint, nil); err != nil {
+			t.Fatal(err)
+		} else if got, want := res.StatusCode, http.StatusMethodNotAllowed; got != want {
+			t.Error("unexpected error code")
+			t.Fatalf("got=%d; want=%d", got, want)
+		}
+	})
+	t.Run("bad PUT request", func(t *testing.T) {
+		if res, _, err := curl("PUT", jsEndpoint, nil); err != nil {
+			t.Fatal(err)
+		} else if got, want := res.StatusCode, http.StatusBadRequest; got != want {
+			t.Error("unexpected error code")
+			t.Fatalf("got=%d; want=%d", got, want)
+		}
+	})
+}

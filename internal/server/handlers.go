@@ -964,6 +964,68 @@ func (s *Server) HandleHealthz(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(w, "OK\n")
 }
 
+// HandleGlobalJetStream
+func (s *Server) HandleGlobalJetStream(w http.ResponseWriter, req *http.Request) {
+	var (
+		size   int
+		status int = http.StatusOK
+		err    error
+	)
+	defer func() {
+		s.processErr(err, status, w, req)
+		s.log.traceRequest(req, size, status, time.Now())
+	}()
+
+	err = s.verifyAuth(w, req)
+	if err != nil {
+		status = http.StatusUnauthorized
+		return
+	}
+
+	switch req.Method {
+	case "PUT":
+		s.log.Infof("Updating global JetStream config")
+		var payload []byte
+		payload, err = ioutil.ReadAll(req.Body)
+		if err != nil {
+			status = http.StatusInternalServerError
+			return
+		}
+		size = len(payload)
+
+		// Validate that it is a permission
+		var c *api.GlobalJetStream
+		err = json.Unmarshal(payload, &c)
+		if err != nil {
+			status = http.StatusBadRequest
+			return
+		}
+		s.log.Tracef("Global JetStream config: %+v", c)
+
+		err = s.storeGlobalJetStream(c)
+		if err != nil {
+			status = http.StatusInternalServerError
+			return
+		}
+		fmt.Fprintf(w, "OK\n")
+	case "DELETE":
+		s.log.Infof("Deleting global JetStream config")
+		err = s.deleteGlobalJetStream()
+		if err != nil {
+			if os.IsNotExist(err) {
+				status = http.StatusNotFound
+			} else {
+				status = http.StatusInternalServerError
+			}
+			return
+		}
+		fmt.Fprintf(w, "OK\n")
+	default:
+		status = http.StatusMethodNotAllowed
+		err = fmt.Errorf("%s is not allowed on %q", req.Method, req.URL.Path)
+	}
+}
+
 func (s *Server) verifyAuth(w http.ResponseWriter, req *http.Request) error {
 	if req.TLS != nil && len(req.TLS.PeerCertificates) > 0 {
 		cert := req.TLS.PeerCertificates[0]

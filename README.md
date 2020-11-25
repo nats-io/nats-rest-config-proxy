@@ -121,14 +121,15 @@ The NATS configuration proxy will return the following error codes:
 * 409 Conflict -  the operation cannot be completed as a dependency will
 create an invalid configuration.
 
-Resource              | GET                                  | POST | PUT                    | DELETE
--------------------------|--------------------------------------|------|------------------------|------------------------
-/v1/auth/idents          | Get list of identities               | 405  | 405                    | Delete all permissions
-/v1/auth/idents/(name)   | Get specific identity w/ permissions | 405  | Create/Update Identity | Delete named identity
-/v1/auth/perms           | Get list of named permissions sets   | 405  | 405                    | Delete all permissions
-/v1/auth/perms/(name)    | Get specific permission set          | 405  | Update Permission      | Delete named permission
-/v1/auth/accounts        | Get list of accounts                 | 405  | 405                    | 400
-/v1/auth/accounts/(name) | Get specific account                 | 405  | Create/Update Account  | Delete named account
+Resource                 | GET                                  | POST | PUT                            | DELETE
+-------------------------|--------------------------------------|------|--------------------------------|------------------------
+/v1/auth/idents          | Get list of identities               | 405  | 405                            | Delete all permissions
+/v1/auth/idents/(name)   | Get specific identity w/ permissions | 405  | Create/Update Identity         | Delete named identity
+/v1/auth/perms           | Get list of named permissions sets   | 405  | 405                            | Delete all permissions
+/v1/auth/perms/(name)    | Get specific permission set          | 405  | Update Permission              | Delete named permission
+/v1/auth/accounts        | Get list of accounts                 | 405  | 405                            | 400
+/v1/auth/accounts/(name) | Get specific account                 | 405  | Create/Update Account          | Delete named account
+/v2/auth/jetstream       | 405                                  | 405  | Create/Update JetStream config | Delete JetStream config
 
 ### Identity Add/Update Payload
 
@@ -232,6 +233,18 @@ curl http://127.0.0.1:4567/v1/auth/idents/sample-user
 
 ```bash
 curl -X PUT http://127.0.0.1:4567/v1/auth/accounts/sample-account -d '{}'
+```
+
+#### Create/update the global jetstream configuration
+
+```bash
+curl -X PUT http://127.0.0.1:4567/v2/auth/jetstream -d '{
+  "store_dir": "/data/nats-server",
+  "max_memory": 1073741824,
+  "max_file": 10737418240,
+  "max_streams": -1,
+  "max_consumers": -1
+}'
 ```
 
 #### Create/update an account with jetstream support
@@ -646,7 +659,7 @@ include "config/current/accounts/auth.conf"
 
 ### Validation tool
 
-Release [v0.4.0](https://github.com/nats-io/nats-rest-config-proxy/releases/tag/v0.4.0) 
+Release [v0.4.0](https://github.com/nats-io/nats-rest-config-proxy/releases/tag/v0.4.0)
 also now includes a `nats-rest-config-validator` tool
 which can be used to verify whether the `resources` are in a valid state
 and otherwise report the error.
@@ -730,7 +743,7 @@ Error: On /bar.json : {
 
 ### Snapshot/Publishing tool
 
-Release [v0.5.0](https://github.com/nats-io/nats-rest-config-proxy/releases/tag/v0.5.0) 
+Release [v0.5.0](https://github.com/nats-io/nats-rest-config-proxy/releases/tag/v0.5.0)
 includes a couple of tools to create and publish snapshots without having to start the server,
 the `nats-rest-config-snapshot` and `nats-rest-config-publish` tools.
 

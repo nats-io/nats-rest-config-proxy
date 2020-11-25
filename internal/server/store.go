@@ -500,6 +500,21 @@ func (s *Server) buildConfigSnapshotV2(snapshotName string) error {
 
 	globalUsers = mergeDuplicateUsers(globalUsers)
 
+	var includeJetStreamConf bool
+	jsc, err := s.getGloablJetStream()
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	} else if err == nil {
+		includeJetStreamConf = true
+		data, err := marshalIndent(jsc)
+		if err != nil {
+			return err
+		}
+		if err := s.storeGlobalJetStreamSnapshot(snapshotName, data); err != nil {
+			return err
+		}
+	}
+
 	// Create the include file
 	var authIncludes string
 	if len(globalUsers) > 0 {
@@ -521,6 +536,10 @@ func (s *Server) buildConfigSnapshotV2(snapshotName string) error {
 	}
 
 	authIncludes += fmt.Sprintf("accounts {\n%s\n}\n", authContent)
+	if includeJetStreamConf {
+		authIncludes += fmt.Sprintf("jetstream {\n  include %q\n}\n", "jetstream.json")
+	}
+
 	err = s.storeSnapshotConfigV2(snapshotName, []byte(authIncludes))
 	if err != nil {
 		return err
@@ -725,5 +744,43 @@ func (s *Server) setupStoreDirectories() error {
 	if err := os.MkdirAll(filepath.Join(s.resourcesDir(), "accounts"), 0755); err != nil {
 		return err
 	}
+	if err := os.MkdirAll(filepath.Join(s.resourcesDir(), "jetstream"), 0755); err != nil {
+		return err
+	}
 	return nil
+}
+
+func (s *Server) storeGlobalJetStream(c *api.GlobalJetStream) error {
+	data, err := marshalIndent(c)
+	if err != nil {
+		return err
+	}
+
+	path := filepath.Join(s.resourcesDir(), "jetstream", "jetstream.json")
+	return ioutil.WriteFile(path, data, 0666)
+}
+
+func (s *Server) storeGlobalJetStreamSnapshot(name string, payload []byte) error {
+	path := filepath.Join(s.snapshotsDir(), name, "jetstream.json")
+	return ioutil.WriteFile(path, payload, 0666)
+}
+
+func (s *Server) getGloablJetStream() (*api.GlobalJetStream, error) {
+	path := filepath.Join(s.resourcesDir(), "jetstream", "jetstream.json")
+	data, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var c *api.GlobalJetStream
+	if err := json.Unmarshal(data, &c); err != nil {
+		return nil, err
+	}
+
+	return c, nil
+}
+
+func (s *Server) deleteGlobalJetStream() error {
+	path := filepath.Join(s.resourcesDir(), "jetstream", "jetstream.json")
+	return os.Remove(path)
 }
