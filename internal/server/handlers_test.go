@@ -1043,6 +1043,21 @@ func TestValidateSnapshotHandler(t *testing.T) {
 		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
 	}
 
+	// Should prevent creating invalid accounts
+	payload2 := `{
+         "publish": {
+           "allow": ["foo.bar.*"]
+          }
+        }`
+	badName := "foo.bar.quux"
+	resp, _, err = curlRawEndpoint("PUT", host, "/v1/auth/accounts/"+badName, []byte(payload2))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 400 {
+		t.Fatalf("Expected bad request, got: %v", resp.StatusCode)
+	}
+
 	// Create a couple of users
 	payload = `{
           "username": "first-user",
@@ -2072,7 +2087,7 @@ func TestVerifyIdent(t *testing.T) {
 			gotErr := err != nil
 			if gotErr && !c.wantErr {
 				t.Error("unexpected error")
-				t.Fatalf("got=%s; want=nil", err)
+				t.Fatalf("got=%q; want=nil", err)
 			} else if !gotErr && c.wantErr {
 				t.Fatal("unexpected ok")
 			}
