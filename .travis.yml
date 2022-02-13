@@ -1,6 +1,6 @@
 language: go
 go:
-  - 1.14
+  - 1.17
 
 go_import_path: github.com/nats-io/nats-rest-config-proxy
 dist: xenial
@@ -8,7 +8,7 @@ sudo: false
 install: true
 script:
   - env GO111MODULE=on go test ./... -v
-  - if [[ "$TRAVIS_GO_VERSION" =~ 1.14 ]]; then ./scripts/cov.sh TRAVIS; else GOGC=10 go test -race -p=1 $EXCLUDE_VENDOR; fi
+  - if [[ "$TRAVIS_GO_VERSION" =~ 1.17 ]]; then ./scripts/cov.sh TRAVIS; else GOGC=10 go test -race -p=1 $EXCLUDE_VENDOR; fi
 
 # calls goreleaser
 deploy:
