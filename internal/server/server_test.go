@@ -135,6 +135,27 @@ func curl(method string, endpoint string, payload []byte) (*http.Response, []byt
 	return resp, body, nil
 }
 
+// curlRawEndpoint sends a request to the endpoint without parsing it as a URL.
+func curlRawEndpoint(method, host, endpoint string, payload []byte) (*http.Response, []byte, error) {
+	e := fmt.Sprintf("%s%s", host, endpoint)
+	buf := bytes.NewBuffer([]byte(payload))
+
+	req, err := http.NewRequest(method, e, buf)
+	if err != nil {
+		return nil, nil, err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, nil, err
+	}
+	return resp, body, nil
+}
+
 func TestServerSetup(t *testing.T) {
 	s, err := newTestServer()
 	if err != nil {

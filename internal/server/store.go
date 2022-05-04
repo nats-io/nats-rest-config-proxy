@@ -478,6 +478,9 @@ func (s *Server) buildConfigSnapshotV2(snapshotName string) error {
 
 	var authContent string
 	for accName, account := range accounts {
+		if accName != "" && !isValidName(accName) {
+			return fmt.Errorf("Invalid characters in account name: %q, cannot include any of the following characters: \\t\\r\\n\\f.*>", accName)
+		}
 		account.Users = mergeDuplicateUsers(account.Users)
 
 		if account.JetStream != nil && account.JetStream.Enabled {
@@ -501,7 +504,7 @@ func (s *Server) buildConfigSnapshotV2(snapshotName string) error {
 	globalUsers = mergeDuplicateUsers(globalUsers)
 
 	var includeJetStreamConf bool
-	jsc, err := s.getGloablJetStream()
+	jsc, err := s.getGlobalJetStream()
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	} else if err == nil {
@@ -765,7 +768,7 @@ func (s *Server) storeGlobalJetStreamSnapshot(name string, payload []byte) error
 	return ioutil.WriteFile(path, payload, 0666)
 }
 
-func (s *Server) getGloablJetStream() (*api.GlobalJetStream, error) {
+func (s *Server) getGlobalJetStream() (*api.GlobalJetStream, error) {
 	path := filepath.Join(s.resourcesDir(), "jetstream", "jetstream.json")
 	data, err := ioutil.ReadFile(path)
 	if err != nil {

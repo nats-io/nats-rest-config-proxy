@@ -242,10 +242,14 @@ func (s *Server) HandleIdent(w http.ResponseWriter, req *http.Request) {
 }
 
 func verifyIdent(existing []*api.User, nu *api.User) error {
+	if nu.Account != "" && !isValidName(nu.Account) {
+		return fmt.Errorf("Invalid characters in user's account name: %q, cannot include any of the following characters: \\t\\r\\n\\f.*>", nu.Account)
+	}
 	for _, eu := range existing {
 		if eu.Username != nu.Username {
 			continue
 		}
+	
 		// User is existing user.
 
 		// A user can only belong to one account. To move a user, delete the
@@ -502,6 +506,10 @@ func hasWildcard(s string) bool {
 	return strings.Contains(s, ">") || strings.Contains(s, "*")
 }
 
+func isValidName(name string) bool {
+	return !strings.ContainsAny(name, " \t\r\n\f.*>")
+}
+
 // HandleAccounts
 func (s *Server) HandleAccounts(w http.ResponseWriter, req *http.Request) {
 	var (
@@ -523,6 +531,12 @@ func (s *Server) HandleAccounts(w http.ResponseWriter, req *http.Request) {
 	name := strings.TrimPrefix(req.URL.Path, "/v1/auth/accounts/")
 	switch req.Method {
 	case "PUT":
+		if !isValidName(name) {
+			err = fmt.Errorf("Invalid characters in account name: %q, cannot include any of the following characters: \t\r\n\f.*>", name)
+			status = http.StatusBadRequest
+			return
+		}
+
 		s.log.Infof("Updating account resource %q", name)
 		var payload []byte
 		payload, err = ioutil.ReadAll(req.Body)
@@ -654,7 +668,7 @@ func (s *Server) HandleAccounts(w http.ResponseWriter, req *http.Request) {
 
 		if hasJetStream {
 			hasExplicitLimits := a.JetStream.MaxMemoryStore != nil ||
-				a.JetStream.MaxFileStore != nil  ||
+				a.JetStream.MaxFileStore != nil ||
 				a.JetStream.MaxStreams != nil ||
 				a.JetStream.MaxConsumers != nil
 

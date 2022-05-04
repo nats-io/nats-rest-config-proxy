@@ -1,4 +1,4 @@
-FROM golang:1.15-alpine3.13 AS builder
+FROM golang:1.16-alpine AS builder
 
 WORKDIR $GOPATH/src/github.com/nats-io/nats-rest-config-proxy/
 
@@ -10,7 +10,7 @@ COPY . .
 
 RUN CGO_ENABLED=0 GO111MODULE=on go build -v -a -tags netgo -installsuffix netgo -ldflags "-s -w" -o /nats-rest-config-proxy
 
-FROM alpine:3.13
+FROM alpine
 
 RUN apk add --update ca-certificates && mkdir -p /nats/bin && mkdir /nats/conf
 
