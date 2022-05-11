@@ -504,6 +504,43 @@ func (s *Server) buildConfigSnapshotV2(snapshotName string) error {
 
 	globalUsers = mergeDuplicateUsers(globalUsers)
 
+	// Find duplicate DN users across accounts and in the global account
+	// to prevent ambiguous permissions.
+	// FIXME: Improve this lookup...
+	findDups := func(accName string, dns *[]*dnUser, users []*api.ConfigUser) error {
+		for _, u := range users {
+			user := u
+			currentDN, err := ldap.ParseDN(u.Username)
+			if err == nil {
+				// Collect valid DNs and find any other matching DN.
+				for _, prevDN := range *dns {
+					if prevDN.dn.RDNsMatch(currentDN) {
+						details := fmt.Sprintf("User %q from Account %q also defined as %q on Account: %v", prevDN.user.Username, prevDN.account, user.Username, accName)
+						return fmt.Errorf("Found duplicated DN based users on multiple accounts! Details: %s", details)
+					}
+				}
+				*dns = append(*dns, &dnUser{
+					dn:      currentDN,
+					user:    user,
+					account: accName,
+				})
+			}
+		}
+		return nil
+	}
+
+	dns := make([]*dnUser, 0)
+	for accName, account := range accounts {
+		err := findDups(accName, &dns, account.Users)
+		if err != nil {
+			return err
+		}
+	}
+	err = findDups("$G", &dns, globalUsers)
+	if err != nil {
+		return err
+	}
+
 	var includeJetStreamConf bool
 	jsc, err := s.getGlobalJetStream()
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -553,8 +590,9 @@ func (s *Server) buildConfigSnapshotV2(snapshotName string) error {
 }
 
 type dnUser struct {
-	dn   *ldap.DN
-	user *api.ConfigUser
+	dn      *ldap.DN
+	user    *api.ConfigUser
+	account string
 }
 
 // mergeDuplicateUsers takes an array of users and merges the permissions of

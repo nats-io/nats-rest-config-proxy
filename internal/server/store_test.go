@@ -256,7 +256,7 @@ func TestMergeDuplicateUsersMixedPermissions(t *testing.T) {
 	}
 }
 
-func TestMergeDuplicateRDNsMixedPermissionsMixedAccounts(t *testing.T) {
+func TestMergeDuplicateRDNsMixedPermissions(t *testing.T) {
 	permA := &api.Permissions{
 		Publish: &api.PermissionRules{
 			Allow: []string{"a"},

@@ -977,7 +977,7 @@ func TestFullCycleWithAccountsJetStream(t *testing.T) {
 		t.Fatal("account should have jetstream enabled")
 	}
 	got := string(msg.Data)
-	expected  := `{"type":"io.nats.jetstream.api.v1.account_info_response","memory":0,"storage":0,"streams":0,"consumers":0,"api":{"total":0,"errors":0},"limits":{"max_memory":-1,"max_storage":-1,"max_streams":-1,"max_consumers":-1}}`
+	expected := `{"type":"io.nats.jetstream.api.v1.account_info_response","memory":0,"storage":0,"streams":0,"consumers":0,"api":{"total":0,"errors":0},"limits":{"max_memory":-1,"max_storage":-1,"max_streams":-1,"max_consumers":-1}}`
 	if got != expected {
 		t.Fatalf("Expected %+v, got: %+v", expected, got)
 	}
@@ -1204,5 +1204,193 @@ func TestFullCycleWithAccountsImportsExportsResponsePermissions(t *testing.T) {
 	expected := "PONG"
 	if got != expected {
 		t.Fatalf("Expected %+v, got: %+v", expected, got)
+	}
+}
+
+func TestFullCycleWithAccountsWithDuplicatedUsers(t *testing.T) {
+	// Create a data directory.
+	opts := DefaultOptions()
+	opts.DataDir = "./data-accounts-dup-check"
+	s := server.NewServer(opts)
+	host := fmt.Sprintf("http://%s:%d", opts.Host, opts.Port)
+	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	time.AfterFunc(2*time.Second, func() {
+		s.Shutdown(ctx)
+		waitServerIsDone(t, ctx, host)
+	})
+	done := make(chan struct{})
+	go func() {
+		s.Run(ctx)
+		done <- struct{}{}
+	}()
+	waitServerIsReady(t, ctx, host)
+
+	// Need to create the accounts first, use an empty JSON payload to create them.
+	resp, _, err := curl("PUT", host+"/v1/auth/accounts/foo", []byte("{}"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+	resp, _, err = curl("PUT", host+"/v1/auth/accounts/bar", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+	resp, _, err = curl("PUT", host+"/v1/auth/accounts/fizz", []byte("{}"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Block defining users in payload.
+	resp, _, err = curl("PUT", host+"/v1/auth/accounts/buzz", []byte(`{"users":[{}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 400 {
+		t.Fatalf("Expected BadRequest, got: %v", resp.StatusCode)
+	}
+
+	// Block export without stream or service.
+	resp, _, err = curl("PUT", host+"/v1/auth/accounts/buzz", []byte(`{"exports":[{}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 400 {
+		t.Fatalf("Expected BadRequest, got: %v", resp.StatusCode)
+	}
+
+	// Block bad imports.
+	resp, _, err = curl("PUT", host+"/v1/auth/accounts/buzz", []byte(`{"imports":[{}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 400 {
+		t.Fatalf("Expected BadRequest, got: %v", resp.StatusCode)
+	}
+
+	resp, _, err = curl("PUT", host+"/v1/auth/accounts/buzz", []byte(`{"exports":[{"service": "foo.>"}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Block wildcard services imports only (note this can change in the future)
+	resp, _, err = curl("PUT", host+"/v1/auth/accounts/fib", []byte(`{"imports":[{"service": { "account": "buzz", "subject": "foo.>"}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 400 {
+		t.Fatalf("Expected BadRequest, got: %v", resp.StatusCode)
+	}
+	resp, _, err = curl("PUT", host+"/v1/auth/accounts/fib", []byte(`{"imports":[{"service": { "account": "buzz", "subject": "foo.help"}}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	resp, _, err = curl("GET", host+"/v1/auth/accounts/foo", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Get all created accounts.
+	resp, body, err := curl("GET", host+"/v1/auth/accounts/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+	var accsBody []interface{}
+	if err := json.Unmarshal(body, &accsBody); err != nil {
+		t.Fatal(err)
+	}
+	if len(accsBody) != 5 {
+		t.Fatalf("Expected 5 accounts, got: %v", len(accsBody))
+	}
+
+	// DELETE account and make sure we can't GET it.
+	resp, _, err = curl("DELETE", host+"/v1/auth/accounts/fizz", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+	resp, _, err = curl("GET", host+"/v1/auth/accounts/fizz", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 404 {
+		t.Fatalf("Expected Not found, got: %v", resp.StatusCode)
+	}
+
+	// Create a couple of users.
+	payload := `{
+	  "username": "CN=pubsub.nats.acme.int,O=Acme,OU=Foo,L=Los Angeles,ST=California,C=US",
+	  "permissions": "normal-user",
+	  "account": "foo"
+	}`
+	resp, _, err = curl("PUT", host+"/v1/auth/idents/foo-user", []byte(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Same user but in different accounts.
+	payload = `{
+	  "username": "CN=pubsub.nats.acme.int,OU=Foo,O=Acme,L=Los Angeles,ST=California,C=US",
+          "permissions": "normal-user",
+          "account": "bar"
+	}`
+	resp, _, err = curl("PUT", host+"/v1/auth/idents/bar-user", []byte(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Create a snapshot.
+	expectedErr1 := `Error: Found duplicated DN based users on multiple accounts! Details: User "CN=pubsub.nats.acme.int,O=Acme,OU=Foo,L=Los Angeles,ST=California,C=US" from Account "foo" also defined as "CN=pubsub.nats.acme.int,OU=Foo,O=Acme,L=Los Angeles,ST=California,C=US" on Account: bar` + "\n"
+	expectedErr2 := `Error: Found duplicated DN based users on multiple accounts! Details: User "CN=pubsub.nats.acme.int,OU=Foo,O=Acme,L=Los Angeles,ST=California,C=US" from Account "bar" also defined as "CN=pubsub.nats.acme.int,O=Acme,OU=Foo,L=Los Angeles,ST=California,C=US" on Account: foo` + "\n"
+	resp, body, err = curl("POST", host+"/v2/auth/validate", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 500 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+	got := string(body)
+	if got != expectedErr1 && got != expectedErr2 {
+		t.Fatalf("Expected %v OR %v, \ngot: %v", expectedErr1, expectedErr2, got)
+	}
+
+	// Publish a named snapshot.
+	resp, body, err = curl("POST", host+"/v2/auth/publish", []byte(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 500 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+	if got != expectedErr1 && got != expectedErr2 {
+		t.Fatalf("Expected %v OR %v, \ngot: %v", expectedErr1, expectedErr2, got)
 	}
 }
