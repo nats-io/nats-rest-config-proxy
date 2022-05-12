@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
@@ -1534,5 +1536,40 @@ func TestFullCycleWithAccountsRDNsPermissionsMerge(t *testing.T) {
 	}
 	if resp.StatusCode != 200 {
 		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	fooBytes, err := os.ReadFile(filepath.Join(opts.DataDir, "current", "accounts", "foo.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var foo map[string]interface{}
+	if err := json.Unmarshal(fooBytes, &foo); err != nil {
+		t.Fatal(err)
+	}
+
+	fooWant := map[string]interface{}{
+		"users": []interface{}{
+			map[string]interface{}{
+				"username": "CN=pubsub.nats.acme.int,OU=Foo,O=Acme,L=Los Angeles,ST=California,C=US",
+				"permissions": map[string]interface{}{
+					"publish": map[string]interface{}{
+						"allow": []interface{}{
+							"bar",
+							"foo",
+							"quuz",
+						},
+					},
+					"subscribe": map[string]interface{}{
+						"deny": []interface{}{
+							"quux",
+						},
+					},
+				},
+			},
+		},
+	}
+	if !reflect.DeepEqual(foo, fooWant) {
+		t.Fatalf("Expected %#v, got: %#v", fooWant, foo)
 	}
 }
