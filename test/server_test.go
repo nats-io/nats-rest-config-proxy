@@ -977,7 +977,7 @@ func TestFullCycleWithAccountsJetStream(t *testing.T) {
 		t.Fatal("account should have jetstream enabled")
 	}
 	got := string(msg.Data)
-	expected := `{"type":"io.nats.jetstream.api.v1.account_info_response","memory":0,"storage":0,"streams":0,"consumers":0,"api":{"total":0,"errors":0},"limits":{"max_memory":-1,"max_storage":-1,"max_streams":-1,"max_consumers":-1}}`
+	expected := `{"type":"io.nats.jetstream.api.v1.account_info_response","memory":0,"storage":0,"streams":0,"consumers":0,"limits":{"max_memory":-1,"max_storage":-1,"max_streams":-1,"max_consumers":-1,"max_ack_pending":-1,"memory_max_stream_bytes":-1,"storage_max_stream_bytes":-1,"max_bytes_required":false},"api":{"total":0,"errors":0}}`
 	if got != expected {
 		t.Fatalf("Expected %+v, got: %+v", expected, got)
 	}
@@ -990,9 +990,9 @@ func TestFullCycleWithAccountsJetStream(t *testing.T) {
 		t.Fatal("account should have jetstream enabled")
 	}
 	got = string(msg.Data)
-	expected = `{"type":"io.nats.jetstream.api.v1.account_info_response","memory":0,"storage":0,"streams":0,"consumers":0,"api":{"total":0,"errors":0},"limits":{"max_memory":1024,"max_storage":1024,"max_streams":3,"max_consumers":2}}`
+	expected = `{"type":"io.nats.jetstream.api.v1.account_info_response","memory":0,"storage":0,"streams":0,"consumers":0,"limits":{"max_memory":1024,"max_storage":1024,"max_streams":3,"max_consumers":2,"max_ack_pending":-1,"memory_max_stream_bytes":-1,"storage_max_stream_bytes":-1,"max_bytes_required":false},"api":{"total":0,"errors":0}}`
 	if got != expected {
-		t.Fatalf("Expected %+v, got: %+v", expected, got)
+		t.Fatalf("Expected: \n%+v, got: \n%+v", expected, got)
 	}
 
 	msg, err = ncC.Request("$JS.API.INFO", []byte("."), 1*time.Second)
