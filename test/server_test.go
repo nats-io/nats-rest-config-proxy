@@ -1394,3 +1394,145 @@ func TestFullCycleWithAccountsWithDuplicatedUsers(t *testing.T) {
 		t.Fatalf("Expected %v OR %v, \ngot: %v", expectedErr1, expectedErr2, got)
 	}
 }
+
+func TestFullCycleWithAccountsRDNsPermissionsMerge(t *testing.T) {
+	// Create a data directory.
+	opts := DefaultOptions()
+	opts.DataDir = "./data-accounts-rdns-merge"
+	s := server.NewServer(opts)
+	host := fmt.Sprintf("http://%s:%d", opts.Host, opts.Port)
+	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	time.AfterFunc(2*time.Second, func() {
+		s.Shutdown(ctx)
+		waitServerIsDone(t, ctx, host)
+	})
+	done := make(chan struct{})
+	go func() {
+		s.Run(ctx)
+		done <- struct{}{}
+	}()
+	waitServerIsReady(t, ctx, host)
+
+	// Need to create the accounts first, use an empty JSON payload to create them.
+	resp, _, err := curl("PUT", host+"/v1/auth/accounts/foo", []byte("{}"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+	resp, _, err = curl("PUT", host+"/v1/auth/accounts/bar", []byte(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+	resp, _, err = curl("PUT", host+"/v1/auth/accounts/fizz", []byte("{}"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	resp, _, err = curl("GET", host+"/v1/auth/accounts/foo", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Get all created accounts.
+	resp, body, err := curl("GET", host+"/v1/auth/accounts/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+	var accsBody []interface{}
+	if err := json.Unmarshal(body, &accsBody); err != nil {
+		t.Fatal(err)
+	}
+	if len(accsBody) != 3 {
+		t.Fatalf("Expected 3 accounts, got: %v", len(accsBody))
+	}
+
+	// Create the permissions.
+	payload := `{
+         "publish": {
+           "allow": ["foo", "bar"]
+          },
+          "subscribe": {
+            "deny": ["quux"]
+          }
+	}`
+	resp, _, err = curl("PUT", host+"/v1/auth/perms/normal-user", []byte(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Merge the permissions from multiple users.
+	payload = `{
+         "publish": {
+           "allow": ["quuz"]
+          }
+	}`
+	resp, _, err = curl("PUT", host+"/v1/auth/perms/extended-user", []byte(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Create a couple of users.
+	payload = `{
+	  "username": "CN=pubsub.nats.acme.int,O=Acme,OU=Foo,L=Los Angeles,ST=California,C=US",
+	  "permissions": "normal-user",
+	  "account": "foo"
+	}`
+	resp, _, err = curl("PUT", host+"/v1/auth/idents/foo-user", []byte(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Same user but with different permissions, they will be merged.
+	payload = `{
+	  "username": "CN=pubsub.nats.acme.int,OU=Foo,O=Acme,L=Los Angeles,ST=California,C=US",
+          "permissions": "extended-user",
+          "account": "foo"
+	}`
+	resp, _, err = curl("PUT", host+"/v1/auth/idents/bar-user", []byte(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	resp, _, err = curl("POST", host+"/v2/auth/validate", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Publish a named snapshot.
+	resp, body, err = curl("POST", host+"/v2/auth/publish", []byte(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+}
