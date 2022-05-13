@@ -1521,6 +1521,19 @@ func TestFullCycleWithAccountsRDNsPermissionsMerge(t *testing.T) {
 		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
 	}
 
+	// Same user but with different permissions, they will be merged.
+	payload = `{
+	  "username": "OU=Foo,O=Acme,L=Los Angeles,ST=California,C=US",
+          "permissions": "normal-user"
+	}`
+	resp, _, err = curl("PUT", host+"/v1/auth/idents/global-user", []byte(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
 	resp, _, err = curl("POST", host+"/v2/auth/validate", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -1571,5 +1584,197 @@ func TestFullCycleWithAccountsRDNsPermissionsMerge(t *testing.T) {
 	}
 	if !reflect.DeepEqual(foo, fooWant) {
 		t.Fatalf("Expected %#v, got: %#v", fooWant, foo)
+	}
+
+	// Now start a server with the config.
+	config := `
+          tls {
+            ca_file = "./certs/rdns/ca.pem"
+            cert_file = "./certs/rdns/client-4222.pem"
+            key_file = "./certs/rdns/client-4222.key"
+            verify_and_map = true
+          }
+          debug = true
+          trace = true
+
+          authorization {
+            include "accounts/global.json"
+          }
+
+          # Load the generated accounts.
+          include "accounts/auth.conf"
+        `
+
+	err = ioutil.WriteFile(filepath.Join(opts.DataDir, "current", "main.conf"), []byte(config), 0666)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	natsd, _ := gnatsd.RunServerWithConfig(filepath.Join(opts.DataDir, "current", "main.conf"))
+	if natsd == nil {
+		t.Fatal("Unexpected error starting a configured NATS server")
+	}
+	defer natsd.Shutdown()
+
+	errCh := make(chan error, 2)
+	ncA, err := nats.Connect("tls://localhost:4222",
+		nats.ErrorHandler(func(_ *nats.Conn, _ *nats.Subscription, err error) {
+			errCh <- err
+		}),
+		nats.RootCAs("./certs/rdns/ca.pem"),
+		nats.ClientCert("./certs/rdns/client-A.pem", "./certs/rdns/client-A.key"),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ncA.Close()
+
+	ncB, err := nats.Connect("nats://localhost:4222",
+		nats.ErrorHandler(func(_ *nats.Conn, _ *nats.Subscription, err error) {
+			errCh <- err
+		}),
+		nats.RootCAs("./certs/rdns/ca.pem"),
+		nats.ClientCert("./certs/rdns/client-B.pem", "./certs/rdns/client-B.key"),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ncB.Flush()
+	defer ncB.Close()
+
+	subA, err := ncA.SubscribeSync(">")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ncA.Publish("foo", []byte("hello"))
+	ncA.Publish("bar", []byte("hello"))
+	ncA.Publish("quuz", []byte("hello"))
+	ncA.Flush()
+
+	msg, err := subA.NextMsg(1 * time.Second)
+	if err != nil {
+		t.Error(err)
+	}
+	got := msg.Subject
+	expected := "foo"
+	if got != expected {
+		t.Errorf("Expected %q, got: %q", expected, got)
+	}
+
+	msg, err = subA.NextMsg(1 * time.Second)
+	if err != nil {
+		t.Error(err)
+	}
+	got = msg.Subject
+	expected = "bar"
+	if got != expected {
+		t.Errorf("Expected %q, got: %q", expected, got)
+	}
+
+	msg, err = subA.NextMsg(1 * time.Second)
+	if err != nil {
+		t.Error(err)
+	}
+	got = msg.Subject
+	expected = "quuz"
+	if got != expected {
+		t.Errorf("Expected %q, got: %q", expected, got)
+	}
+
+	subB, err := ncB.SubscribeSync(">")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ncB.Publish("foo", []byte("hello"))
+	ncB.Publish("bar", []byte("hello"))
+	ncB.Publish("quuz", []byte("hello"))
+	ncB.Flush()
+	msg, err = subB.NextMsg(1 * time.Second)
+	if err != nil {
+		t.Error(err)
+	}
+	got = msg.Subject
+	expected = "foo"
+	if got != expected {
+		t.Errorf("Expected %q, got: %q", expected, got)
+	}
+
+	msg, err = subB.NextMsg(1 * time.Second)
+	if err != nil {
+		t.Error(err)
+	}
+	got = msg.Subject
+	expected = "bar"
+	if got != expected {
+		t.Errorf("Expected %q, got: %q", expected, got)
+	}
+
+	msg, err = subB.NextMsg(1 * time.Second)
+	if err != nil {
+		t.Error(err)
+	}
+	got = msg.Subject
+	expected = "quuz"
+	if got != expected {
+		t.Errorf("Expected %q, got: %q", expected, got)
+	}
+
+	ncA.Publish("denied-to-A", []byte("hello"))
+	time.Sleep(500 * time.Millisecond)
+	ncB.Publish("denied-to-B", []byte("hello"))
+
+	select {
+	case err := <-errCh:
+		got := err.Error()
+		expected := `nats: Permissions Violation for Publish to "denied-to-A"`
+		if got != expected {
+			t.Errorf("Expected %q, got: %q", expected, got)
+		}
+	case <-time.After(1 * time.Second):
+		t.Fatal("Timed out waiting for error code")
+	}
+
+	select {
+	case err := <-errCh:
+		got := err.Error()
+		expected := `nats: Permissions Violation for Publish to "denied-to-B"`
+		if got != expected {
+			t.Errorf("Expected %q, got: %q", expected, got)
+		}
+	case <-time.After(1 * time.Second):
+		t.Fatal("Timed out waiting for error code")
+	}
+
+	ncC, err := nats.Connect("nats://localhost:4222",
+		nats.ErrorHandler(func(_ *nats.Conn, _ *nats.Subscription, err error) {
+			errCh <- err
+		}),
+		nats.RootCAs("./certs/rdns/ca.pem"),
+		nats.ClientCert("./certs/rdns/client-C.pem", "./certs/rdns/client-C.key"),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ncC.Flush()
+	defer ncC.Close()
+
+	subC, err := ncC.SubscribeSync(">")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ncC.Publish("foo", []byte("hello"))
+	ncC.Publish("bar", []byte("hello"))
+	ncA.Flush()
+
+	msg, err = subC.NextMsg(1 * time.Second)
+	if err != nil {
+		t.Error(err)
+	}
+	got = msg.Subject
+	expected = "foo"
+	if got != expected {
+		t.Errorf("Expected %q, got: %q", expected, got)
 	}
 }
