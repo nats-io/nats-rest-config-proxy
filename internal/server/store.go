@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	"github.com/nats-io/nats-rest-config-proxy/api"
+	"github.com/nats-io/nats-rest-config-proxy/internal/ldap"
 	natsserver "github.com/nats-io/nats-server/v2/server"
 )
 
@@ -503,6 +504,43 @@ func (s *Server) buildConfigSnapshotV2(snapshotName string) error {
 
 	globalUsers = mergeDuplicateUsers(globalUsers)
 
+	// Find duplicate DN users across accounts and in the global account
+	// to prevent ambiguous permissions.
+	// FIXME: Improve this lookup...
+	findDups := func(accName string, dns *[]*dnUser, users []*api.ConfigUser) error {
+		for _, u := range users {
+			user := u
+			currentDN, err := ldap.ParseDN(u.Username)
+			if err == nil {
+				// Collect valid DNs and find any other matching DN.
+				for _, prevDN := range *dns {
+					if prevDN.dn.RDNsMatch(currentDN) {
+						details := fmt.Sprintf("User %q from Account %q also defined as %q on Account: %v", prevDN.user.Username, prevDN.account, user.Username, accName)
+						return fmt.Errorf("Found duplicated DN based users on multiple accounts! Details: %s", details)
+					}
+				}
+				*dns = append(*dns, &dnUser{
+					dn:      currentDN,
+					user:    user,
+					account: accName,
+				})
+			}
+		}
+		return nil
+	}
+
+	dns := make([]*dnUser, 0)
+	for accName, account := range accounts {
+		err := findDups(accName, &dns, account.Users)
+		if err != nil {
+			return err
+		}
+	}
+	err = findDups("$G", &dns, globalUsers)
+	if err != nil {
+		return err
+	}
+
 	var includeJetStreamConf bool
 	jsc, err := s.getGlobalJetStream()
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -551,33 +589,71 @@ func (s *Server) buildConfigSnapshotV2(snapshotName string) error {
 	return s.validateSnapshotConfigV2(snapshotName)
 }
 
+type dnUser struct {
+	dn      *ldap.DN
+	user    *api.ConfigUser
+	account string
+}
+
 // mergeDuplicateUsers takes an array of users and merges the permissions of
 // users that have the same name. The caller should make sure that all of the
 // users in the given array are from the same account.
 func mergeDuplicateUsers(users []*api.ConfigUser) []*api.ConfigUser {
 	m := make(map[string]*api.ConfigUser)
+	dns := make([]*dnUser, 0)
 
 	for _, u := range users {
-		key := u.Username + u.Password + u.Nkey
+		user := u
+		currentDN, err := ldap.ParseDN(u.Username)
+		if err == nil {
+			// Collect valid DNs and find any other matching DN.
+			match := false
+			for i, prevDN := range dns {
+				if prevDN.dn.RDNsMatch(currentDN) {
+					// Merge the user permissions.
+					p := mergeUserPermissions(
+						prevDN.user.Permissions,
+						u.Permissions,
+					)
+					prevDN.user.Permissions = p
+					dns[i] = prevDN
+					match = true
+				}
+			}
 
-		if prev, ok := m[key]; ok {
-			// Found a duplicate!
-			p := mergeUserPermissions(prev.Permissions, u.Permissions)
-			prev.Permissions = p
+			// If no match, then add it.
+			if !match {
+				dns = append(dns, &dnUser{
+					dn:   currentDN,
+					user: user,
+				})
+			}
+		} else {
+			key := u.Username + u.Password + u.Nkey
 
-			// Keep original. It shouldn't matter which we keep because only
-			// the permissions should be different.
-			m[key] = prev
-			continue
+			// Plain check
+			if prev, ok := m[key]; ok {
+				// Found a duplicate!
+				p := mergeUserPermissions(prev.Permissions, u.Permissions)
+				prev.Permissions = p
+
+				// Keep original. It shouldn't matter which we keep because only
+				// the permissions should be different.
+				m[key] = prev
+				continue
+			}
+			// Not seen before, keep track.
+			m[key] = u
 		}
-
-		// Not seen before, keep track.
-		m[key] = u
 	}
-
 	deduped := make([]*api.ConfigUser, 0, len(m))
 	for _, user := range m {
 		deduped = append(deduped, user)
+	}
+
+	// Also add deduped DN like entries.
+	for _, dn := range dns {
+		deduped = append(deduped, dn.user)
 	}
 
 	return deduped

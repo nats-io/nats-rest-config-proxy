@@ -256,6 +256,101 @@ func TestMergeDuplicateUsersMixedPermissions(t *testing.T) {
 	}
 }
 
+func TestMergeDuplicateRDNsMixedPermissions(t *testing.T) {
+	permA := &api.Permissions{
+		Publish: &api.PermissionRules{
+			Allow: []string{"a"},
+		},
+	}
+	permB := &api.Permissions{
+		Subscribe: &api.PermissionRules{
+			Allow: []string{"b"},
+		},
+	}
+	permAB := &api.Permissions{
+		Publish: &api.PermissionRules{
+			Allow: []string{"a"},
+		},
+		Subscribe: &api.PermissionRules{
+			Allow: []string{"b"},
+		},
+	}
+
+	rdnA := `CN=pubsub.nats.acme.int,O=Acme,OU=Foo,L=Los Angeles,ST=California,C=US`
+	rdnB := `CN=pubsub.nats.acme.int,OU=Foo,O=Acme,L=Los Angeles,ST=California,C=US`
+	rdnC := `OU=Foo,O=Acme,L=Los Angeles,ST=California,C=US`
+	rdnD := `CN=pubsub.nats.acme.int, O=Acme, DC=example, DC=com`
+	rdnE := `CN=pubsub.nats.acme.int, O=Acme, OU=Foo, DC=example, DC=com`
+
+	cases := []struct {
+		name  string
+		users []*api.ConfigUser
+		want  []*api.ConfigUser
+	}{
+		{
+			name: "merge rnds A and B into one",
+			users: []*api.ConfigUser{
+				{Username: rdnA, Permissions: permA},
+				{Username: rdnB, Permissions: permB},
+			},
+			want: []*api.ConfigUser{
+				{Username: rdnA, Permissions: permAB},
+			},
+		},
+		{
+			name: "merge rdns A and B into the same (swapped permissions)",
+			users: []*api.ConfigUser{
+				{Username: rdnA, Permissions: permB},
+				{Username: rdnB, Permissions: permA},
+			},
+			want: []*api.ConfigUser{
+				{Username: rdnA, Permissions: permAB},
+			},
+		},
+		{
+			name: "submatch rdns are not equal so there is no merge",
+			users: []*api.ConfigUser{
+				{Username: rdnA, Permissions: permA},
+				{Username: rdnC, Permissions: permB},
+			},
+			want: []*api.ConfigUser{
+				{Username: rdnA, Permissions: permA},
+				{Username: rdnC, Permissions: permB},
+			},
+		},
+		{
+			name: "submatch rdns are not equal so there is no merge",
+			users: []*api.ConfigUser{
+				{Username: rdnD, Permissions: permA},
+				{Username: rdnE, Permissions: permB},
+			},
+			want: []*api.ConfigUser{
+				{Username: rdnD, Permissions: permA},
+				{Username: rdnE, Permissions: permB},
+			},
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := mergeDuplicateUsers(c.users)
+			if !configUsersEqual(got, c.want) {
+				t.Errorf("Expected len %d, got len: %d", len(c.want), len(got))
+				t.Errorf("Expected %#v, got: %#v", c.want, got)
+				t.Error("--- got ---")
+				for i, u := range got {
+					t.Errorf("%d Username: %#v\n", i, u.Username)
+					t.Errorf("%d Password: %#v\n", i, u.Password)
+					t.Errorf("%d Nkey: %#v\n", i, u.Nkey)
+					t.Errorf("%d Permissions: %#v\n", i, u.Permissions)
+					t.Errorf("%d Publish: %#v\n", i, u.Permissions.Publish)
+					t.Errorf("%d Subscribe: %#v\n", i, u.Permissions.Subscribe)
+				}
+			}
+		})
+	}
+}
+
 func configUsersEqual(a, b []*api.ConfigUser) bool {
 	if len(a) != len(b) {
 		return false
