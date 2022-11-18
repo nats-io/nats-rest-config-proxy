@@ -14,8 +14,7 @@ const usageStr = `
 Options:
     -d, --dir <directory>         Directory for storing data (default is the current directory.)
     -h, --help                    Show this message
-    -v, --version                 Show version
-`
+    -v, --version                 Show version`
 
 func main() {
 	rand.Seed(time.Now().UnixNano())

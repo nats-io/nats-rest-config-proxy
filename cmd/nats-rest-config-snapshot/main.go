@@ -15,8 +15,7 @@ Options:
     -d, --dir <directory>         Directory for storing data (default is the current directory.)
     -s, --snapshot <name>         Take snapshot of the configuration
     -h, --help                    Show this message
-    -v, --version                 Show version
-`
+    -v, --version                 Show version`
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
