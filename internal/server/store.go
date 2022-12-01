@@ -865,11 +865,15 @@ func (s *Server) deleteGlobalJetStream() error {
 }
 
 // RunDataDirectoryRepair fixes the data directory in case there are duplicates.
+// This function is meant to be run in a standalone.
 func (s *Server) RunDataDirectoryRepair() error {
-	if !s.opts.NoLog && s.log == nil {
+	if s.log == nil {
 		l := NewLogger(s.opts)
 		l.debug = s.opts.Debug
 		l.trace = s.opts.Trace
+		if s.opts.NoLog {
+			l.logger.SetOutput(ioutil.Discard)
+		}
 		s.log = l
 	}
 	files, err := filepath.Glob(filepath.Join(s.opts.DataDir, "*.json"))
@@ -905,5 +909,12 @@ func (s *Server) RunDataDirectoryRepair() error {
 			return err
 		}
 	}
+
+	p := filepath.Join(s.opts.DataDir, "auth.conf")
+	_, err = natsserver.ProcessConfigFile(p)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
