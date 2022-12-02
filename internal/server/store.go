@@ -863,3 +863,58 @@ func (s *Server) deleteGlobalJetStream() error {
 	path := filepath.Join(s.resourcesDir(), "jetstream", "jetstream.json")
 	return os.Remove(path)
 }
+
+// RunDataDirectoryRepair fixes the data directory in case there are duplicates.
+// This function is meant to be run in a standalone.
+func (s *Server) RunDataDirectoryRepair() error {
+	if s.log == nil {
+		l := NewLogger(s.opts)
+		l.debug = s.opts.Debug
+		l.trace = s.opts.Trace
+		if s.opts.NoLog {
+			l.logger.SetOutput(ioutil.Discard)
+		}
+		s.log = l
+	}
+	files, err := filepath.Glob(filepath.Join(s.opts.DataDir, "*.json"))
+	if err != nil {
+		return err
+	}
+	// Find duplicate entries in the output directory.
+	for _, file := range files {
+		data, err := os.ReadFile(file)
+		if err != nil {
+			return err
+		}
+		var a *api.Account
+		if err := json.Unmarshal(data, &a); err != nil {
+			return err
+		}
+		users := mergeDuplicateUsers(a.Users)
+		delta := len(a.Users) - len(users)
+		if delta > 0 {
+			s.log.Infof("Found %d duplicate users at account %q\n", delta, file)
+		} else {
+			// Skip since no changes.
+			s.log.Tracef("No duplicates at account %q\n", file)
+			continue
+		}
+		a.Users = users
+		acc, err := a.AsJSON()
+		if err != nil {
+			return err
+		}
+		err = os.WriteFile(file, acc, 0666)
+		if err != nil {
+			return err
+		}
+	}
+
+	p := filepath.Join(s.opts.DataDir, "auth.conf")
+	_, err = natsserver.ProcessConfigFile(p)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

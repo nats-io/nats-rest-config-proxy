@@ -3,7 +3,7 @@ module github.com/nats-io/nats-rest-config-proxy
 go 1.19
 
 require (
-	github.com/nats-io/nats-server/v2 v2.9.7
+	github.com/nats-io/nats-server/v2 v2.9.8
 	github.com/nats-io/nats.go v1.20.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
