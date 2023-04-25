@@ -597,6 +597,54 @@ curl -X PUT http://127.0.0.1:4567/v1/auth/idents/bar-2-user -d '{
 }'
 ```
 
+### Account based Subject Mapping
+
+You can also apply subject mappings to an account.
+
+```
+curl -X PUT http://127.0.0.1:4567/v1/auth/accounts/MappedAccount -d '{
+  "mappings": {
+    "foo": [
+      {
+        "destination": "foo.mapped",
+        "weight": "100%"
+      }
+    ],
+    "bar": [
+      {
+        "destination": "bar.mapped.1",
+        "weight": "50%"
+      },
+      {
+        "destination": "bar.mapped.2",
+        "weight": "50%"
+      }
+    ]
+  }
+}'
+```
+
+Add a user:
+
+```
+curl -X PUT http://127.0.0.1:4567/v1/auth/idents/mapped-account-user -d '{
+  "username": "mapped-account-user",
+  "password": "mapped-account-user-secret",
+  "permissions": "admin",
+  "account": "MappedAccount"
+}'
+```
+
+Messages published to `foo` will be mapped to `foo.mapped` and messages
+published to `bar` will be distributed to `bar.mapped.1` and `bar.mapped.2`
+roughly equally.
+
+Account subject mappings are maintained alongside import and exports, so
+be sure to include existing imports and exports as you add, change, or remove
+subject mappings. 
+
+## Creating Snapshots
+
 We now can create a named snapshot for this setup. Let's create one named `v1`:
 
 ```sh

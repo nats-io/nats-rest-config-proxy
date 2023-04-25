@@ -377,6 +377,7 @@ func (s *Server) buildConfigSnapshot(name string) error {
 					Exports:   acc.Exports,
 					Imports:   acc.Imports,
 					JetStream: acc.JetStream,
+					Mappings:  acc.Mappings,
 				}
 				accounts[u.Account] = account
 			}

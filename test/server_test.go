@@ -2417,3 +2417,199 @@ func TestFullCycleWithAccountsRDNsPermissionsMergeThenRepair(t *testing.T) {
 		t.Errorf("Expected %q, got: %q", expected, got)
 	}
 }
+
+func TestFullCycleWithAccountsMapping(t *testing.T) {
+	// Create a data directory.
+	opts := DefaultOptions()
+	opts.DataDir = "./data-accounts-mapping"
+	s := server.NewServer(opts)
+	host := fmt.Sprintf("http://%s:%d", opts.Host, opts.Port)
+	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	time.AfterFunc(2*time.Second, func() {
+		s.Shutdown(ctx)
+		waitServerIsDone(t, ctx, host)
+	})
+	done := make(chan struct{})
+	go func() {
+		s.Run(ctx)
+		done <- struct{}{}
+	}()
+	waitServerIsReady(t, ctx, host)
+
+	// Need to create an account with mapping first.
+	resp, _, err := curl("PUT", host+"/v1/auth/accounts/foo", []byte(`{
+		"mappings": {
+		  "foo": [
+			{
+		      "destination": "foo.mapped",
+			  "weight": "100%"
+			}
+		  ],
+		  "bar": [
+		    {
+		      "destination": "bar.mapped.1",
+		      "weight": "50%"
+		    },
+		    {
+		      "destination": "bar.mapped.2",
+		      "weight": "50%"
+		    }
+		  ],
+		  "foo.correct.cluster": [
+			{
+		      "destination": "foo.correct.cluster.expect.ok",
+			  "weight": "100%",
+			  "cluster" : "correct"
+			}
+		  ],
+		  "foo.incorrect.cluster": [
+			{
+		      "destination": "foo.incorrect.cluster.expect.timeout",
+			  "weight": "100%",
+			  "cluster" : "incorrect"
+			}
+		  ]		  	  
+		}
+	}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Create a  users
+	payload := `{
+	  "username": "foo-user",
+	  "password": "secret",
+	  "permissions": "admin-user",
+	  "account": "foo"
+	}`
+	resp, _, err = curl("PUT", host+"/v1/auth/idents/foo-user", []byte(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Create a snapshot.
+	resp, _, err = curl("POST", host+"/v2/auth/snapshot?name=with-accounts", []byte(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	// Publish a named snapshot.
+	resp, _, err = curl("POST", host+"/v2/auth/publish?name=with-accounts", []byte(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+	}
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timed out waiting for server to stop")
+	}
+
+	config := `
+	      cluster {
+			name: correct
+		  }
+          # Load the generated accounts.
+          include "accounts/auth.conf"
+        `
+
+	err = ioutil.WriteFile("./data-accounts-mapping/current/main.conf", []byte(config), 0666)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	natsd, _ := gnatsd.RunServerWithConfig("./data-accounts-mapping/current/main.conf")
+	if natsd == nil {
+		t.Fatal("Unexpected error starting a configured NATS server")
+	}
+	defer natsd.Shutdown()
+
+	errCh := make(chan error, 2)
+	nc, err := nats.Connect("nats://foo-user:secret@127.0.0.1:4222",
+		nats.ErrorHandler(func(_ *nats.Conn, _ *nats.Subscription, err error) {
+			errCh <- err
+		}),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer nc.Close()
+
+	sub, err := nc.SubscribeSync("foo.mapped")
+	if err != nil {
+		t.Fatal(err)
+	}
+	nc.Publish("foo", []byte("hello"))
+	nc.Flush()
+
+	_, err = sub.NextMsg(time.Millisecond * 500)
+	if err != nil {
+		t.Fatalf("Didn't receive message from foo mapping: %v", err)
+	}
+
+	sub, err = nc.SubscribeSync("bar.mapped.*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 100; i++ {
+		nc.Publish("bar", []byte("hello"))
+	}
+	nc.Flush()
+
+	var cb1, cb2 int
+	var msg *nats.Msg
+	for i := 0; i < 100; i++ {
+		msg, err = sub.NextMsg(time.Millisecond * 500)
+		if err != nil {
+			t.Fatalf("Didn't receive message from bar mapping: %v", err)
+		}
+		if msg.Subject == "bar.mapped.1" {
+			cb1++
+		}
+		if msg.Subject == "bar.mapped.2" {
+			cb2++
+		}
+		if cb1 != 0 && cb2 != 0 {
+			break
+		}
+	}
+	if cb1 == 0 || cb2 == 0 {
+		t.Fatalf("Expected distribution, got bar.mapped.1 (%d), bar.mapped.2 (%d)", cb1, cb2)
+	}
+
+	sub, err = nc.SubscribeSync("foo.correct.cluster.expect.ok")
+	if err != nil {
+		t.Fatal(err)
+	}
+	nc.Publish("foo.correct.cluster", []byte("hello"))
+	nc.Flush()
+
+	_, err = sub.NextMsg(time.Millisecond * 500)
+	if err != nil {
+		t.Fatalf("Didn't receive message from foo.correct.cluster mapping: %v", err)
+	}
+
+	sub, err = nc.SubscribeSync("foo.incorrect.cluster.expect.timeout")
+	if err != nil {
+		t.Fatal(err)
+	}
+	nc.Publish("foo.incorrect.cluster", []byte("hello"))
+	nc.Flush()
+
+	_, err = sub.NextMsg(time.Millisecond * 500)
+	if err == nil {
+		t.Fatalf("Recieved message with incorrect cluster: %v", err)
+	}
+}
