@@ -122,7 +122,7 @@ type Account struct {
 	// JetStream enables the JS config.
 	JetStream *AccountJetStreamConfig `json:"jetstream,omitempty"`
 
-	// Subject mapping enables remapping subject and paritions
+	// Subject mapping enables remapping subject and partitions
 	Mappings map[string][]*SubjectMap `json:"mappings,omitempty"`
 }
 
