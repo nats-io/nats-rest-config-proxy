@@ -1655,6 +1655,42 @@ func TestAccountsHandler(t *testing.T) {
 			nil,
 			errors.New("Error: Import service subject must not have a wildcard"),
 		},
+		{
+			"create acctmap account with subject mapping",
+			"acctmap",
+			`{
+				"mappings": {
+				 "s1": [
+				  {
+				   "destination": "d1.1",
+				   "weight": "50%",
+				   "cluster": "foo"
+				  },
+				  {
+				   "destination": "d1.2",
+				   "weight": "50%"
+				  }
+				 ],
+				 "s2": [
+				  {
+				   "destination": "d2.1",
+				   "weight": "75%"
+				  },
+				  {
+				   "destination": "d2.2",
+				   "weight": "25%"
+				  }
+				 ]
+				}
+			   }`,
+			&api.Account{
+				Mappings: map[string][]*api.SubjectMap{
+					"s1": {{Destination: "d1.1", Weight: "50%", Cluster: "foo"}, {Destination: "d1.2", Weight: "50%"}},
+					"s2": {{Destination: "d2.1", Weight: "75%"}, {Destination: "d2.2", Weight: "25%"}},
+				},
+			},
+			nil,
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			resp, body, err := curl("PUT", host+"/v1/auth/accounts/"+test.account, []byte(test.payload))
@@ -1829,7 +1865,7 @@ func TestAccountsHandler(t *testing.T) {
 			t.Errorf("Expected OK, got: %v", resp.StatusCode)
 		}
 
-		expected := 5
+		expected := 6
 		var got []interface{}
 		if err := json.Unmarshal(body, &got); err != nil {
 			t.Fatal(err)

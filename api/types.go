@@ -100,6 +100,14 @@ type ConfigUser struct {
 	Permissions *Permissions `json:"permissions,omitempty"`
 }
 
+// Subject mapping destination is for mapping subjects globally, by account, or
+// by import.
+type SubjectMap struct {
+	Destination string `json:"destination,omitempty"`
+	Weight      string `json:"weight,omitempty"`
+	Cluster     string `json:"cluster,omitempty"`
+}
+
 // Account with users.
 type Account struct {
 	// Users that belong to the account.
@@ -113,6 +121,9 @@ type Account struct {
 
 	// JetStream enables the JS config.
 	JetStream *AccountJetStreamConfig `json:"jetstream,omitempty"`
+
+	// Subject mapping enables remapping subject and partitions
+	Mappings map[string][]*SubjectMap `json:"mappings,omitempty"`
 }
 
 // AsJSON returns a byte slice of the type.
@@ -150,7 +161,7 @@ type AccountJetStreamConfig struct {
 }
 
 type GlobalJetStream struct {
-	StoreDir string `json:"store_dir,omitempty"`
+	StoreDir         string `json:"store_dir,omitempty"`
 	AccountJetStream `json:",inline"`
 }
 
