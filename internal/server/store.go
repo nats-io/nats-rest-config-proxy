@@ -512,7 +512,7 @@ func (s *Server) buildConfigSnapshotV2(snapshotName string) error {
 		for _, u := range users {
 			user := u
 			currentDN, err := ldap.ParseDN(u.Username)
-			if err == nil {
+			if err == nil && u.Username != "" {
 				// Collect valid DNs and find any other matching DN.
 				for _, prevDN := range *dns {
 					if prevDN.dn.RDNsMatch(currentDN) {
@@ -606,7 +606,7 @@ func mergeDuplicateUsers(users []*api.ConfigUser) []*api.ConfigUser {
 	for _, u := range users {
 		user := u
 		currentDN, err := ldap.ParseDN(u.Username)
-		if err == nil {
+		if err == nil && u.Username != "" {
 			// Collect valid DNs and find any other matching DN.
 			match := false
 			for i, prevDN := range dns {
