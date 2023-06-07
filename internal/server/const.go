@@ -14,7 +14,6 @@
 package server
 
 const (
-	Version             = "0.8.0"
 	AppName             = "nats-rest-config-proxy"
 	DefaultPort         = 4567
 	DefaultDataDir      = "data"

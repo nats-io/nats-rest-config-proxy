@@ -24,8 +24,14 @@ import (
 	"github.com/nats-io/nats-rest-config-proxy/internal/server"
 )
 
+var (
+	version = "0.0.0"
+)
+
 func main() {
-	rand.Seed(time.Now().UnixNano())
+	rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	server.Version = version
 
 	opts, err := server.ConfigureOptions(os.Args[1:])
 	if err != nil {

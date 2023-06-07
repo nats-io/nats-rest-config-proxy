@@ -20,8 +20,14 @@ Options:
     -h, --help                    Show this message
     -v, --version                 Show version`
 
+var (
+	version = "0.0.0"
+)
+
 func main() {
-	rand.Seed(time.Now().UnixNano())
+	rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	server.Version = version
 
 	flag.Usage = func() {
 		fmt.Fprintln(os.Stderr, "Usage: nats-rest-config-publish [options...]")

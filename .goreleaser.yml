@@ -11,6 +11,8 @@ release:
 builds:
 - id: nats-rest-config-proxy
   main: ./cmd/nats-rest-config-proxy/main.go
+  ldflags:
+    - '-s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}'
   binary: nats-rest-config-proxy
   env:
     - CGO_ENABLED=0
@@ -32,6 +34,8 @@ builds:
 
 - id: nats-rest-config-validator
   main: ./cmd/nats-rest-config-validator/main.go
+  ldflags:
+    - '-s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}'
   binary: nats-rest-config-validator
   env:
     - CGO_ENABLED=0
@@ -53,6 +57,8 @@ builds:
 
 - id: nats-rest-config-publish
   main: ./cmd/nats-rest-config-publish/main.go
+  ldflags:
+    - '-s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}'
   binary: nats-rest-config-publish
   env:
     - CGO_ENABLED=0
@@ -74,7 +80,8 @@ builds:
 
 - id: nats-rest-config-snapshot
   main: ./cmd/nats-rest-config-snapshot/main.go
-  ldflags: -s -w
+  ldflags:
+    - '-s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}'
   binary: nats-rest-config-snapshot
   env:
     - CGO_ENABLED=0
