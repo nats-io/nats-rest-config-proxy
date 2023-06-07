@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"testing"
@@ -14,6 +13,14 @@ import (
 	"github.com/nats-io/nats-rest-config-proxy/internal/server"
 	gnatsd "github.com/nats-io/nats-server/v2/test"
 	nats "github.com/nats-io/nats.go"
+)
+
+const (
+	NATS_FQDN = "nats-cluster.default.svc.cluster.local"
+)
+
+var (
+	NATS_URL = fmt.Sprintf("nats://%s:4222", NATS_FQDN)
 )
 
 func TestTLSSetup(t *testing.T) {
@@ -28,7 +35,7 @@ func TestTLSSetup(t *testing.T) {
 	go s.Run(ctx)
 
 	// Wait until https healthz is ok
-	caCert, err := ioutil.ReadFile("certs/ca.pem")
+	caCert, err := os.ReadFile("certs/ca.pem")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,7 +46,7 @@ func TestTLSSetup(t *testing.T) {
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
 				RootCAs:    caCertPool,
-				ServerName: "nats-cluster.default.svc.cluster.local",
+				ServerName: NATS_FQDN,
 			},
 		},
 	}
@@ -78,7 +85,7 @@ func TestTLSAuth(t *testing.T) {
 	go s.Run(ctx)
 
 	// Wait until https healthz is ok.
-	caCert, err := ioutil.ReadFile("certs/ca.pem")
+	caCert, err := os.ReadFile("certs/ca.pem")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,7 +103,7 @@ func TestTLSAuth(t *testing.T) {
 			Transport: &http.Transport{
 				TLSClientConfig: &tls.Config{
 					RootCAs:      caCertPool,
-					ServerName:   "nats-cluster.default.svc.cluster.local",
+					ServerName:   NATS_FQDN,
 					Certificates: []tls.Certificate{cert},
 				},
 			},
@@ -133,7 +140,7 @@ func TestTLSAuth(t *testing.T) {
 			Transport: &http.Transport{
 				TLSClientConfig: &tls.Config{
 					RootCAs:      caCertPool,
-					ServerName:   "nats-cluster.default.svc.cluster.local",
+					ServerName:   NATS_FQDN,
 					Certificates: []tls.Certificate{cert},
 				},
 			},
@@ -166,7 +173,7 @@ func TestTLSAuthFullCycle(t *testing.T) {
 	// Create a data directory.
 	opts := DefaultOptions()
 
-	dir, err := ioutil.TempDir("", "acl-proxy-data-dir-")
+	dir, err := os.MkdirTemp("", "acl-proxy-data-dir-")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -277,7 +284,7 @@ func TestTLSAuthFullCycle(t *testing.T) {
 	}
 
 	`
-	err = ioutil.WriteFile(dir+"/current/main.conf", []byte(config), 0666)
+	err = os.WriteFile(dir+"/current/main.conf", []byte(config), 0666)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -289,7 +296,7 @@ func TestTLSAuthFullCycle(t *testing.T) {
 	defer natsd.Shutdown()
 
 	errCh := make(chan error, 2)
-	ncA, err := nats.Connect("nats://nats-cluster.default.svc.cluster.local:4222",
+	ncA, err := nats.Connect(NATS_URL,
 		nats.ErrorHandler(func(_ *nats.Conn, _ *nats.Subscription, err error) {
 			errCh <- err
 		}),
@@ -303,7 +310,7 @@ func TestTLSAuthFullCycle(t *testing.T) {
 	ncA.Publish("ng.1", []byte("first"))
 	ncA.Flush()
 
-	ncB, err := nats.Connect("nats://nats-cluster.default.svc.cluster.local:4222",
+	ncB, err := nats.Connect(NATS_URL,
 		nats.ErrorHandler(func(_ *nats.Conn, _ *nats.Subscription, err error) {
 			errCh <- err
 		}),
@@ -387,7 +394,7 @@ func TestTLSAuthFullCycleWithAccounts(t *testing.T) {
 	// Create a data directory.
 	opts := DefaultOptions()
 
-	dir, err := ioutil.TempDir("", "acl-proxy-data-accounts-dir-")
+	dir, err := os.MkdirTemp("", "acl-proxy-data-accounts-dir-")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -509,7 +516,7 @@ func TestTLSAuthFullCycleWithAccounts(t *testing.T) {
         log_file = "/tmp/here.log"
 
 	`
-	err = ioutil.WriteFile(dir+"/current/main.conf", []byte(config), 0666)
+	err = os.WriteFile(dir+"/current/main.conf", []byte(config), 0666)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -522,7 +529,7 @@ func TestTLSAuthFullCycleWithAccounts(t *testing.T) {
 
 	// Connect and publish, which should error out.
 	errCh := make(chan error, 2)
-	ncA, err := nats.Connect("nats://nats-cluster.default.svc.cluster.local:4222",
+	ncA, err := nats.Connect(NATS_URL,
 		nats.ErrorHandler(func(_ *nats.Conn, _ *nats.Subscription, err error) {
 			errCh <- err
 		}),
@@ -548,7 +555,7 @@ func TestTLSAuthFullCycleWithAccounts(t *testing.T) {
 	}
 
 	// Connect and publish, which should error out.
-	ncB, err := nats.Connect("nats://nats-cluster.default.svc.cluster.local:4222",
+	ncB, err := nats.Connect(NATS_URL,
 		nats.ErrorHandler(func(_ *nats.Conn, _ *nats.Subscription, err error) {
 			errCh <- err
 		}),

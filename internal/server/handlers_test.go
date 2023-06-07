@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -243,7 +242,7 @@ func TestPublishHandler(t *testing.T) {
 	script := `#!/bin/sh
 echo 'Publishing script...' > ./artifact.log
 `
-	err = ioutil.WriteFile(s.opts.PublishScript, []byte(script), 0755)
+	err = os.WriteFile(s.opts.PublishScript, []byte(script), 0755)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -321,7 +320,7 @@ echo 'Publishing script...' > ./artifact.log
 	}
 
 	// Confirm that the publish script was executed
-	result, err := ioutil.ReadFile(filepath.Join(s.opts.DataDir, "artifact.log"))
+	result, err := os.ReadFile(filepath.Join(s.opts.DataDir, "artifact.log"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -342,7 +341,7 @@ func TestPublishScriptFailure(t *testing.T) {
 	script := `#!/bin/sh
 exit 1
 `
-	err = ioutil.WriteFile(s.opts.PublishScript, []byte(script), 0755)
+	err = os.WriteFile(s.opts.PublishScript, []byte(script), 0755)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1771,7 +1770,7 @@ func TestAccountsHandler(t *testing.T) {
 		}
 
 		// Confirm the result
-		contents, err := ioutil.ReadFile(s.opts.DataDir + "/current/auth.json")
+		contents, err := os.ReadFile(s.opts.DataDir + "/current/auth.json")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1974,7 +1973,7 @@ func TestPublishHandlerV2(t *testing.T) {
 	script := `#!/bin/sh
 echo 'Publishing script...' > ./artifact2.log
 `
-	err = ioutil.WriteFile(s.opts.PublishScript, []byte(script), 0755)
+	err = os.WriteFile(s.opts.PublishScript, []byte(script), 0755)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2016,7 +2015,7 @@ echo 'Publishing script...' > ./artifact2.log
 		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
 	}
 
-	result, err := ioutil.ReadFile(filepath.Join(s.opts.DataDir, "current", "accounts", "global.json"))
+	result, err := os.ReadFile(filepath.Join(s.opts.DataDir, "current", "accounts", "global.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2066,7 +2065,7 @@ echo 'Publishing script...' > ./artifact2.log
 	}
 
 	// Confirm that the publish script was executed
-	result, err = ioutil.ReadFile(filepath.Join(s.opts.DataDir, "artifact2.log"))
+	result, err = os.ReadFile(filepath.Join(s.opts.DataDir, "artifact2.log"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2333,7 +2332,7 @@ func TestAccountsJetStreamHandler(t *testing.T) {
 		}
 
 		// js1 account
-		contents, err := ioutil.ReadFile(filepath.Join(s.opts.DataDir, "current", "accounts", "js1.json"))
+		contents, err := os.ReadFile(filepath.Join(s.opts.DataDir, "current", "accounts", "js1.json"))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -2353,7 +2352,7 @@ func TestAccountsJetStreamHandler(t *testing.T) {
 		}
 
 		// js2 account
-		contents, err = ioutil.ReadFile(filepath.Join(s.opts.DataDir, "current", "accounts", "js2.json"))
+		contents, err = os.ReadFile(filepath.Join(s.opts.DataDir, "current", "accounts", "js2.json"))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -2372,7 +2371,7 @@ func TestAccountsJetStreamHandler(t *testing.T) {
 			t.Errorf("Expected: %q\nGot: %q", expected, got)
 		}
 
-		contents, err = ioutil.ReadFile(filepath.Join(s.opts.DataDir, "current", "accounts", "js3.json"))
+		contents, err = os.ReadFile(filepath.Join(s.opts.DataDir, "current", "accounts", "js3.json"))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -2396,7 +2395,7 @@ func TestAccountsJetStreamHandler(t *testing.T) {
 			t.Errorf("Expected: %q\nGot: %q", expected, got)
 		}
 
-		contents, err = ioutil.ReadFile(filepath.Join(s.opts.DataDir, "current", "accounts", "js4.json"))
+		contents, err = os.ReadFile(filepath.Join(s.opts.DataDir, "current", "accounts", "js4.json"))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -2420,7 +2419,7 @@ func TestAccountsJetStreamHandler(t *testing.T) {
 			t.Errorf("Expected: %q\nGot: %q", expected, got)
 		}
 
-		contents, err = ioutil.ReadFile(filepath.Join(s.opts.DataDir, "current", "accounts", "js5.json"))
+		contents, err = os.ReadFile(filepath.Join(s.opts.DataDir, "current", "accounts", "js5.json"))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -2593,7 +2592,7 @@ func TestHandleGlobalJetStream(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		data, err := ioutil.ReadFile(jsConf)
+		data, err := os.ReadFile(jsConf)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -2602,7 +2601,7 @@ func TestHandleGlobalJetStream(t *testing.T) {
 			t.Fatalf("got=%s; want=%s", got, want)
 		}
 
-		data, err = ioutil.ReadFile(accConf)
+		data, err = os.ReadFile(accConf)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -2631,7 +2630,7 @@ func TestHandleGlobalJetStream(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		data, err := ioutil.ReadFile(jsConf)
+		data, err := os.ReadFile(jsConf)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -2647,7 +2646,7 @@ func TestHandleGlobalJetStream(t *testing.T) {
 			t.Fatalf("got=%q; want=%q", got, want)
 		}
 
-		data, err = ioutil.ReadFile(accConf)
+		data, err = os.ReadFile(accConf)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -2672,12 +2671,12 @@ func TestHandleGlobalJetStream(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		data, err := ioutil.ReadFile(jsConf)
+		data, err := os.ReadFile(jsConf)
 		if err == nil {
 			t.Fatal("unexpected success, want not exists error")
 		}
 
-		data, err = ioutil.ReadFile(accConf)
+		data, err = os.ReadFile(accConf)
 		if err != nil {
 			t.Fatal(err)
 		}

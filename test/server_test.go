@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -79,7 +79,7 @@ func curl(method string, endpoint string, payload []byte) (*http.Response, []byt
 		return nil, nil, err
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -208,7 +208,7 @@ func TestFullCycle(t *testing.T) {
 	}
 
 	config := fmt.Sprintf("\nauthorization {\n include \"auth.json\" \n}\n")
-	err = ioutil.WriteFile("./data/current/main.conf", []byte(config), 0666)
+	err = os.WriteFile("./data/current/main.conf", []byte(config), 0666)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -495,7 +495,7 @@ func TestFullCycleWithAccounts(t *testing.T) {
           accounts = $accounts
         `
 
-	err = ioutil.WriteFile("./data-accounts/current/main.conf", []byte(config), 0666)
+	err = os.WriteFile("./data-accounts/current/main.conf", []byte(config), 0666)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -714,7 +714,7 @@ func TestFullCycleWithAccountsImportsExports(t *testing.T) {
           include "accounts/auth.conf"
         `
 
-	err = ioutil.WriteFile("./data-accounts-imports/current/main.conf", []byte(config), 0666)
+	err = os.WriteFile("./data-accounts-imports/current/main.conf", []byte(config), 0666)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -921,7 +921,7 @@ func TestFullCycleWithAccountsJetStream(t *testing.T) {
           include "accounts/auth.conf"
         `
 
-	err = ioutil.WriteFile("./data-accounts-imports/current/main.conf", []byte(config), 0666)
+	err = os.WriteFile("./data-accounts-imports/current/main.conf", []byte(config), 0666)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1142,7 +1142,7 @@ func TestFullCycleWithAccountsImportsExportsResponsePermissions(t *testing.T) {
           include "accounts/auth.conf"
         `
 
-	err = ioutil.WriteFile("./data-accounts-response-permissions/current/main.conf", []byte(config), 0666)
+	err = os.WriteFile("./data-accounts-response-permissions/current/main.conf", []byte(config), 0666)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1792,7 +1792,7 @@ func TestFullCycleWithAccountsRDNsPermissionsMerge(t *testing.T) {
           include "accounts/auth.conf"
         `
 
-	err = ioutil.WriteFile(filepath.Join(opts.DataDir, "current", "main.conf"), []byte(config), 0666)
+	err = os.WriteFile(filepath.Join(opts.DataDir, "current", "main.conf"), []byte(config), 0666)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2244,7 +2244,7 @@ func TestFullCycleWithAccountsRDNsPermissionsMergeThenRepair(t *testing.T) {
           include "accounts/auth.conf"
         `
 
-	err = ioutil.WriteFile(filepath.Join(opts.DataDir, "current", "main.conf"), []byte(config), 0666)
+	err = os.WriteFile(filepath.Join(opts.DataDir, "current", "main.conf"), []byte(config), 0666)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2525,7 +2525,7 @@ func TestFullCycleWithAccountsMapping(t *testing.T) {
           include "accounts/auth.conf"
         `
 
-	err = ioutil.WriteFile("./data-accounts-mapping/current/main.conf", []byte(config), 0666)
+	err = os.WriteFile("./data-accounts-mapping/current/main.conf", []byte(config), 0666)
 	if err != nil {
 		t.Fatal(err)
 	}

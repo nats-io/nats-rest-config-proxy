@@ -17,7 +17,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -32,7 +32,7 @@ import (
 var testPort int = 4567
 
 func newTestServer() (*Server, error) {
-	dir, err := ioutil.TempDir("", "acl-proxy-data-dir-")
+	dir, err := os.MkdirTemp("", "acl-proxy-data-dir-")
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +53,7 @@ func newTestServer() (*Server, error) {
 
 	// Setup test server for handler without binding port
 	l := NewLogger(s.opts)
-	l.logger.SetOutput(ioutil.Discard)
+	l.logger.SetOutput(io.Discard)
 	s.log = l
 	err = s.setupStoreDirectories()
 	if err != nil {
@@ -128,7 +128,7 @@ func curl(method string, endpoint string, payload []byte) (*http.Response, []byt
 		return nil, nil, err
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -149,7 +149,7 @@ func curlRawEndpoint(method, host, endpoint string, payload []byte) (*http.Respo
 		return nil, nil, err
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -261,7 +261,7 @@ func TestRunServerFileLogger(t *testing.T) {
 		t.Fatalf("Unexpected error running server: %s", err)
 	}
 
-	contents, err := ioutil.ReadFile(s.opts.LogFile)
+	contents, err := os.ReadFile(s.opts.LogFile)
 	if err != nil {
 		t.Error(err)
 	}
