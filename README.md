@@ -1,4 +1,5 @@
-[![License][License-Image]][License-Url][![Build][Build-Status-Image]][Build-Status-Url] [![Coverage Status](https://coveralls.io/repos/github/nats-io/nats-rest-config-proxy/badge.svg?branch=master&t=s8FTRY)](https://coveralls.io/github/nats-io/nats-rest-config-proxy?branch=master)[![Version](https://d25lcipzij17d.cloudfront.net/badge.svg?id=go&type=5&v=0.6.0)](https://github.com/nats-io/nats-rest-config-proxy/releases/tag/v0.6.0)
+[![License][License-Image]][License-Url] ![Build][Build-Status-Image] ![GitHub release (latest by date)][Release-Version-Image] [![Coveralls branch][Coverage-Image]][Coverage-Url]
+
 
 # NATS REST Configuration Proxy
 
@@ -831,7 +832,7 @@ Unless otherwise noted, the NATS source files are distributed under the Apache V
 
 [License-Url]: https://www.apache.org/licenses/LICENSE-2.0
 [License-Image]: https://img.shields.io/badge/License-Apache2-blue.svg
-[Build-Status-Url]: http://travis-ci.org/nats-io/nats-rest-config-proxy
-[Build-Status-Image]: https://travis-ci.org/nats-io/nats-rest-config-proxy.svg?branch=master
-[Coverage-Url]: https://coveralls.io/r/nats-io/nats-rest-config-proxy?branch=master
-[Coverage-image]: https://coveralls.io/repos/github/nats-io/nats-rest-config-proxy/badge.svg?branch=master
+[Build-Status-Image]: https://img.shields.io/github/actions/workflow/status/nats-io/nats-rest-config-proxy/coverage.yaml?branch=main
+[Coverage-Url]: https://coveralls.io/r/nats-io/nats-rest-config-proxy?branch=main
+[Coverage-Image]: https://coveralls.io/repos/github/nats-io/nats-rest-config-proxy/badge.svg?branch=main
+[Release-Version-Image]: https://img.shields.io/github/v/release/nats-io/nats-rest-config-proxy
