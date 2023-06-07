@@ -888,7 +888,9 @@ func randomString(n int) string {
 }
 
 func randIntRange(min, max int) int {
-	return rand.Intn(max-min) + min
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	return r.Intn(max-min) + min
 }
 
 // HandlePublishV2

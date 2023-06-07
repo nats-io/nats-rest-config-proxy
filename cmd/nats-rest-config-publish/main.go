@@ -4,11 +4,9 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
-	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"time"
 
 	"github.com/nats-io/nats-rest-config-proxy/internal/server"
 )
@@ -25,8 +23,6 @@ var (
 )
 
 func main() {
-	rand.New(rand.NewSource(time.Now().UnixNano()))
-
 	server.Version = version
 
 	flag.Usage = func() {
