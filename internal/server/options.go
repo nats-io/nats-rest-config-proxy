@@ -23,7 +23,9 @@ import (
 	"github.com/nats-io/nats-server/v2/conf"
 )
 
-var usageStr = `
+var (
+	Version  = ""
+	usageStr = `
 Server Options:
     -a, --addr <host>             Bind to host address (default: 0.0.0.0)
     -p, --port <port>             Use port for clients (default: 4567)
@@ -46,6 +48,7 @@ Common Options:
     -h, --help                    Show this message
     -v, --version                 Show version
 `
+)
 
 // Options for the server.
 type Options struct {

@@ -14,7 +14,7 @@
 package server
 
 import (
-	"io/ioutil"
+	"os"
 	"reflect"
 	"testing"
 
@@ -22,7 +22,7 @@ import (
 )
 
 func TestStoreGetPermission(t *testing.T) {
-	dir, err := ioutil.TempDir("", "acl-proxy-data-dir-")
+	dir, err := os.MkdirTemp("", "acl-proxy-data-dir-")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +49,7 @@ func TestStoreGetPermission(t *testing.T) {
 }
 
 func TestStoreGetUser(t *testing.T) {
-	dir, err := ioutil.TempDir("", "acl-proxy-data-dir-")
+	dir, err := os.MkdirTemp("", "acl-proxy-data-dir-")
 	if err != nil {
 		t.Fatal(err)
 	}

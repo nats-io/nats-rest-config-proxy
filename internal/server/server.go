@@ -18,7 +18,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -95,7 +95,7 @@ func (s *Server) Run(ctx context.Context) error {
 			return lj.Rotate()
 		}
 	case s.opts.NoLog:
-		l.logger.SetOutput(ioutil.Discard)
+		l.logger.SetOutput(io.Discard)
 		fallthrough
 	default:
 		s.quit = func() { done() }
@@ -278,7 +278,7 @@ func (s *Server) generateTLSConfig() (*tls.Config, error) {
 
 	// Add in CAs if applicable.
 	if s.opts.CaFile != "" {
-		rootPEM, err := ioutil.ReadFile(s.opts.CaFile)
+		rootPEM, err := os.ReadFile(s.opts.CaFile)
 		if err != nil || rootPEM == nil {
 			return nil, fmt.Errorf("failed to load root ca certificate (%s): %v", s.opts.CaFile, err)
 		}

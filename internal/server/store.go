@@ -18,7 +18,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -38,7 +38,7 @@ func (s *Server) storePermissionResource(name string, permission *api.Permission
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(path, payload, 0666)
+	return os.WriteFile(path, payload, 0666)
 }
 
 // storeUserResource
@@ -48,7 +48,7 @@ func (s *Server) storeUserResource(name string, user *api.User) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(path, payload, 0666)
+	return os.WriteFile(path, payload, 0666)
 }
 
 // storeAccountResource
@@ -58,7 +58,7 @@ func (s *Server) storeAccountResource(name string, account *api.Account) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(path, payload, 0666)
+	return os.WriteFile(path, payload, 0666)
 }
 
 // getAllAccountResources reads all account resource files.
@@ -75,7 +75,7 @@ func (s *Server) getAllAccountResources() ([]*api.Account, error) {
 			return nil
 		}
 
-		data, err := ioutil.ReadFile(p)
+		data, err := os.ReadFile(p)
 		if err != nil {
 			return err
 		}
@@ -126,7 +126,7 @@ func (s *Server) getAllAccountResources() ([]*api.Account, error) {
 // getAccountResource reads an account resource from a file.
 func (s *Server) getAccountResource(name string) (u *api.Account, err error) {
 	path := filepath.Join(s.resourcesDir(), "accounts", fmt.Sprintf("%s.json", name))
-	data, err := ioutil.ReadFile(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return
 	}
@@ -147,7 +147,7 @@ func (s *Server) deleteAccountResource(name string) error {
 // then returns a set of permissions.
 func (s *Server) getPermissionResource(name string) (u *api.Permissions, err error) {
 	path := filepath.Join(s.resourcesDir(), "permissions", fmt.Sprintf("%s.json", name))
-	data, err := ioutil.ReadFile(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return
 	}
@@ -161,7 +161,7 @@ func (s *Server) getPermissionResource(name string) (u *api.Permissions, err err
 // getPermissions returns a map of permissions filename to api.Permissions.
 func (s *Server) getPermissions() (map[string]*api.Permissions, error) {
 	permissions := make(map[string]*api.Permissions)
-	files, err := ioutil.ReadDir(filepath.Join(s.resourcesDir(), "permissions"))
+	files, err := os.ReadDir(filepath.Join(s.resourcesDir(), "permissions"))
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +181,7 @@ func (s *Server) getPermissions() (map[string]*api.Permissions, error) {
 // getAccounts returns a map of account filename to api.Account.
 func (s *Server) getAccounts() (map[string]*api.Account, error) {
 	accounts := make(map[string]*api.Account)
-	files, err := ioutil.ReadDir(filepath.Join(s.resourcesDir(), "accounts"))
+	files, err := os.ReadDir(filepath.Join(s.resourcesDir(), "accounts"))
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +201,7 @@ func (s *Server) getAccounts() (map[string]*api.Account, error) {
 // getUsers returns a set of users.
 func (s *Server) getUsers() ([]*api.User, error) {
 	users := make([]*api.User, 0)
-	files, err := ioutil.ReadDir(filepath.Join(s.resourcesDir(), "users"))
+	files, err := os.ReadDir(filepath.Join(s.resourcesDir(), "users"))
 	if err != nil {
 		return nil, err
 	}
@@ -219,7 +219,7 @@ func (s *Server) getUsers() ([]*api.User, error) {
 }
 
 func (s *Server) deleteAllUsers() error {
-	files, err := ioutil.ReadDir(filepath.Join(s.resourcesDir(), "users"))
+	files, err := os.ReadDir(filepath.Join(s.resourcesDir(), "users"))
 	if err != nil {
 		return err
 	}
@@ -236,7 +236,7 @@ func (s *Server) deleteAllUsers() error {
 
 func (s *Server) deleteAllPermissions() (bool, error) {
 	var conflict bool
-	files, err := ioutil.ReadDir(filepath.Join(s.resourcesDir(), "permissions"))
+	files, err := os.ReadDir(filepath.Join(s.resourcesDir(), "permissions"))
 	if err != nil {
 		return conflict, err
 	}
@@ -273,7 +273,7 @@ func (s *Server) deletePermissionResource(name string) error {
 // getUserResource
 func (s *Server) getUserResource(name string) (*api.User, error) {
 	path := filepath.Join(s.resourcesDir(), "users", fmt.Sprintf("%s.json", name))
-	data, err := ioutil.ReadFile(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
@@ -293,7 +293,7 @@ func (s *Server) deleteUserResource(name string) error {
 // getConfigSnapshot
 func (s *Server) getConfigSnapshot(name string) ([]byte, error) {
 	path := filepath.Join(s.snapshotsDir(), fmt.Sprintf("%s.json", name))
-	return ioutil.ReadFile(path)
+	return os.ReadFile(path)
 }
 
 // publishConfigSnapshotV2
@@ -334,7 +334,7 @@ func (s *Server) buildConfigSnapshot(name string) error {
 	// Users that belong to the global account.
 	users := make([]*api.ConfigUser, 0)
 	accounts := make(map[string]*api.Account)
-	files, err := ioutil.ReadDir(filepath.Join(s.resourcesDir(), "users"))
+	files, err := os.ReadDir(filepath.Join(s.resourcesDir(), "users"))
 	if err != nil {
 		return err
 	}
@@ -422,7 +422,7 @@ func (s *Server) buildConfigSnapshotV2(snapshotName string) error {
 
 	// Reduce the users into the account, then explode the accounts
 	// by iterating at the end.
-	userFiles, err := ioutil.ReadDir(filepath.Join(s.resourcesDir(), "users"))
+	userFiles, err := os.ReadDir(filepath.Join(s.resourcesDir(), "users"))
 	if err != nil {
 		return err
 	}
@@ -780,32 +780,32 @@ ReportError:
 
 func (s *Server) storeSnapshot(name string, payload []byte) error {
 	path := filepath.Join(s.snapshotsDir(), fmt.Sprintf("%s.json", name))
-	return ioutil.WriteFile(path, payload, 0666)
+	return os.WriteFile(path, payload, 0666)
 }
 
 func (s *Server) storeSnapshotConfigV2(name string, payload []byte) error {
 	path := filepath.Join(s.snapshotsDir(), name, "auth.conf")
-	return ioutil.WriteFile(path, payload, 0666)
+	return os.WriteFile(path, payload, 0666)
 }
 
 func (s *Server) storeConfigV2(data []byte) error {
 	path := filepath.Join(s.currentConfigDir(), "auth.conf")
-	return ioutil.WriteFile(path, data, 0666)
+	return os.WriteFile(path, data, 0666)
 }
 
 func (s *Server) storeConfig(data []byte) error {
 	path := filepath.Join(s.currentConfigDir(), "auth.json")
-	return ioutil.WriteFile(path, data, 0666)
+	return os.WriteFile(path, data, 0666)
 }
 
 func (s *Server) storeAccountSnapshot(snapshotName string, accName string, payload []byte) error {
 	path := filepath.Join(s.snapshotsDir(), snapshotName, fmt.Sprintf("%s.json", accName))
-	return ioutil.WriteFile(path, payload, 0666)
+	return os.WriteFile(path, payload, 0666)
 }
 
 func (s *Server) getCurrentConfig() ([]byte, error) {
 	path := filepath.Join(s.currentConfigDir(), "auth.json")
-	return ioutil.ReadFile(path)
+	return os.ReadFile(path)
 }
 
 func (s *Server) setupStoreDirectories() error {
@@ -837,17 +837,17 @@ func (s *Server) storeGlobalJetStream(c *api.GlobalJetStream) error {
 	}
 
 	path := filepath.Join(s.resourcesDir(), "jetstream", "jetstream.json")
-	return ioutil.WriteFile(path, data, 0666)
+	return os.WriteFile(path, data, 0666)
 }
 
 func (s *Server) storeGlobalJetStreamSnapshot(name string, payload []byte) error {
 	path := filepath.Join(s.snapshotsDir(), name, "jetstream.json")
-	return ioutil.WriteFile(path, payload, 0666)
+	return os.WriteFile(path, payload, 0666)
 }
 
 func (s *Server) getGlobalJetStream() (*api.GlobalJetStream, error) {
 	path := filepath.Join(s.resourcesDir(), "jetstream", "jetstream.json")
-	data, err := ioutil.ReadFile(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
@@ -873,7 +873,7 @@ func (s *Server) RunDataDirectoryRepair() error {
 		l.debug = s.opts.Debug
 		l.trace = s.opts.Trace
 		if s.opts.NoLog {
-			l.logger.SetOutput(ioutil.Discard)
+			l.logger.SetOutput(io.Discard)
 		}
 		s.log = l
 	}

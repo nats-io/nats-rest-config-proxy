@@ -4,11 +4,9 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
-	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"time"
 
 	"github.com/nats-io/nats-rest-config-proxy/internal/server"
 )
@@ -20,8 +18,12 @@ Options:
     -h, --help                    Show this message
     -v, --version                 Show version`
 
+var (
+	version = "0.0.0"
+)
+
 func main() {
-	rand.Seed(time.Now().UnixNano())
+	server.Version = version
 
 	flag.Usage = func() {
 		fmt.Fprintln(os.Stderr, "Usage: nats-rest-config-publish [options...]")

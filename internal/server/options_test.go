@@ -15,7 +15,7 @@ package server
 
 import (
 	"errors"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -399,13 +399,13 @@ func TestOptions(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			args := test.args
 			expected := test.expected
-			dir, err := ioutil.TempDir("", "acl-proxy-data-dir-")
+			dir, err := os.MkdirTemp("", "acl-proxy-data-dir-")
 			if err != nil {
 				t.Fatal(err)
 			}
 			if test.conf != "" {
 				file := filepath.Join(dir, "server.conf")
-				err = ioutil.WriteFile(file, []byte(test.conf), 0644)
+				err = os.WriteFile(file, []byte(test.conf), 0644)
 				if err != nil {
 					t.Fatal(err)
 				}

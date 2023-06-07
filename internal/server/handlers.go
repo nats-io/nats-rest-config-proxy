@@ -18,7 +18,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/rand"
 	"net/http"
 	"os"
@@ -55,7 +55,7 @@ func (s *Server) HandlePerm(w http.ResponseWriter, req *http.Request) {
 	case "PUT":
 		s.log.Infof("Updating permission resource %q", name)
 		var payload []byte
-		payload, err = ioutil.ReadAll(req.Body)
+		payload, err = io.ReadAll(req.Body)
 		if err != nil {
 			status = http.StatusInternalServerError
 			return
@@ -156,7 +156,7 @@ func (s *Server) HandleIdent(w http.ResponseWriter, req *http.Request) {
 	case "PUT":
 		s.log.Infof("Updating user resource %q", name)
 		var payload []byte
-		payload, err = ioutil.ReadAll(req.Body)
+		payload, err = io.ReadAll(req.Body)
 		if err != nil {
 			status = http.StatusInternalServerError
 			return
@@ -249,7 +249,7 @@ func verifyIdent(existing []*api.User, nu *api.User) error {
 		if eu.Username != nu.Username {
 			continue
 		}
-	
+
 		// User is existing user.
 
 		// A user can only belong to one account. To move a user, delete the
@@ -539,7 +539,7 @@ func (s *Server) HandleAccounts(w http.ResponseWriter, req *http.Request) {
 
 		s.log.Infof("Updating account resource %q", name)
 		var payload []byte
-		payload, err = ioutil.ReadAll(req.Body)
+		payload, err = io.ReadAll(req.Body)
 		if err != nil {
 			status = http.StatusInternalServerError
 			return
@@ -888,7 +888,9 @@ func randomString(n int) string {
 }
 
 func randIntRange(min, max int) int {
-	return rand.Intn(max-min) + min
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	return r.Intn(max-min) + min
 }
 
 // HandlePublishV2
@@ -1000,7 +1002,7 @@ func (s *Server) HandleGlobalJetStream(w http.ResponseWriter, req *http.Request)
 	case "PUT":
 		s.log.Infof("Updating global JetStream config")
 		var payload []byte
-		payload, err = ioutil.ReadAll(req.Body)
+		payload, err = io.ReadAll(req.Body)
 		if err != nil {
 			status = http.StatusInternalServerError
 			return
