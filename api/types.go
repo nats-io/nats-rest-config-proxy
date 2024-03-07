@@ -124,6 +124,9 @@ type Account struct {
 
 	// Subject mapping enables remapping subject and partitions
 	Mappings map[string][]*SubjectMap `json:"mappings,omitempty"`
+
+	// MessageTracing enables path tracing using otel headers
+	MessageTracing *AccountMsgTrace `json:"msg_trace,omitempty"`
 }
 
 // AsJSON returns a byte slice of the type.
@@ -133,21 +136,22 @@ func (u *Account) AsJSON() ([]byte, error) {
 
 // Export
 type Export struct {
-	Stream   string   `json:"stream,omitempty"`
-	Service  string   `json:"service,omitempty"`
-	Accounts []string `json:"accounts,omitempty"`
-	Response string   `json:"response,omitempty"`
+	Stream     string   `json:"stream,omitempty"`
+	Service    string   `json:"service,omitempty"`
+	Accounts   []string `json:"accounts,omitempty"`
+	Response   string   `json:"response,omitempty"`
+	AllowTrace bool     `json:"allow_trace,omitempty"`
 }
 
 // Import
 type Import struct {
 	Service      *GenericImport `json:"service,omitempty"`
-	Stream       *GenericImport `json:"stream,omitempty"`
+	Stream       *StreamImport  `json:"stream,omitempty"`
 	StreamPrefix string         `json:"prefix,omitempty"`
 	ServiceTo    string         `json:"to,omitempty"`
 }
 
-// AccountJetStreamConfig maps to the NATS Config.
+// AccountJetStream maps to the NATS Config.
 type AccountJetStream struct {
 	MaxMemoryStore *int64 `json:"max_mem,omitempty"`
 	MaxFileStore   *int64 `json:"max_file,omitempty"`
@@ -160,12 +164,22 @@ type AccountJetStreamConfig struct {
 	AccountJetStream `json:",inline"`
 }
 
+type AccountMsgTrace struct {
+	DestinationSubject string `json:"dest"`
+	SamplingPct        int    `json:"sampling"`
+}
+
 type GlobalJetStream struct {
 	StoreDir         string `json:"store_dir,omitempty"`
 	AccountJetStream `json:",inline"`
 }
 
-// GenericImport
+type StreamImport struct {
+	GenericImport
+	AllowTrace bool `json:"allow_trace,omitempty"`
+}
+
+// GenericImport are common fields shared between stream and service imports
 type GenericImport struct {
 	Account string `json:"account,omitempty"`
 	Subject string `json:"subject,omitempty"`

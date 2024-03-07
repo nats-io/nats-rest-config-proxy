@@ -729,14 +729,16 @@ func mergeStringSlices(a, b []string) []string {
 func (s *Server) validateSnapshotConfigV2(name string) error {
 	pt := filepath.Join(s.snapshotsDir(), name)
 	p := filepath.Join(pt, "auth.conf")
-	_, e := natsserver.ProcessConfigFile(p)
-	if e == nil {
+	_, err := natsserver.ProcessConfigFile(p)
+	if err == nil {
 		return nil
 	}
 
+	s.log.Warnf("Validating snapshot %s, %v", name, err)
+
 	// If there were any errors try to find the position
 	// of the resulting error.
-	fields := strings.Split(e.Error(), ":")
+	fields := strings.Split(err.Error(), ":")
 	if len(fields) >= 3 {
 		// Try to get the line with the error.
 		path := fields[0]
@@ -772,8 +774,8 @@ func (s *Server) validateSnapshotConfigV2(name string) error {
 	}
 
 ReportError:
-	if e != nil {
-		return errors.New(strings.Replace(e.Error(), pt, "", -1))
+	if err != nil {
+		return errors.New(strings.Replace(err.Error(), pt, "", -1))
 	}
 	return nil
 }
