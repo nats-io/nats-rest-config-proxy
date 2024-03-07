@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	natsserver "github.com/nats-io/nats-server/v2/server"
 	"io"
 	"net/http"
 	"net/url"
@@ -634,7 +635,7 @@ func TestFullCycleWithAccountsImportsExports(t *testing.T) {
 	resp, _, err := curl("PUT", host+"/v1/auth/accounts/foo", []byte(`{
           "exports": [
             { "stream": "foo.public.>" },
-            { "service": "foo.api" }
+            { "service": "foo.api", "allow_trace": true }
           ]
         }`))
 	if err != nil {
@@ -644,8 +645,12 @@ func TestFullCycleWithAccountsImportsExports(t *testing.T) {
 		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
 	}
 	resp, _, err = curl("PUT", host+"/v1/auth/accounts/quux", []byte(`{
+          "msg_trace": {
+          	"dest": "otel",
+            "sampling": 100
+          },
           "imports": [
-            { "stream": {"account": "foo", "subject": "foo.public.>" }, "prefix": "from" },
+            { "stream": {"account": "foo", "subject": "foo.public.>" }, "allow_trace": true, "prefix": "from" },
             { "service": {"account": "foo", "subject": "foo.api" }, "to": "from.foo.api" }
           ]
         }`))
@@ -686,12 +691,12 @@ func TestFullCycleWithAccountsImportsExports(t *testing.T) {
 	}
 
 	// Create a snapshot.
-	resp, _, err = curl("POST", host+"/v2/auth/snapshot?name=with-accounts", []byte(payload))
+	resp, rbytes, err := curl("POST", host+"/v2/auth/snapshot?name=with-accounts", []byte(payload))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if resp.StatusCode != 200 {
-		t.Fatalf("Expected OK, got: %v", resp.StatusCode)
+		t.Fatalf("Expected OK, got: %v, %q", resp.StatusCode, rbytes)
 	}
 
 	// Publish a named snapshot.
@@ -794,6 +799,32 @@ func TestFullCycleWithAccountsImportsExports(t *testing.T) {
 	expected = "PONG"
 	if got != expected {
 		t.Fatalf("Expected %+v, got: %+v", expected, got)
+	}
+
+	// check that tracing works across accounts using otel header
+	otel, err := ncB.SubscribeSync("otel")
+	if err != nil {
+		t.Fatal("otel subscription failed")
+	}
+
+	msg = nats.NewMsg("from.foo.api")
+	msg.Header.Add("traceparent", "00-4bf92f3577b34da6a3ce929d0e0e4737-00f067aa0ba902b7-01")
+	err = ncB.PublishMsg(msg)
+	if err != nil {
+		t.Fatal("publishing traceparent message failed")
+	}
+
+	traceMsg, err := otel.NextMsg(time.Second)
+	if err != nil {
+		t.Fatalf("waiting for trace failed: %v", err)
+	}
+	var trace natsserver.MsgTraceEvent
+	err = json.Unmarshal(traceMsg.Data, &trace)
+	if err != nil {
+		t.Fatalf("invalid trace: %v", err)
+	}
+	if len(trace.Events) != 4 {
+		t.Fatalf("Expected 4 trace events got %d", len(trace.Events))
 	}
 }
 
