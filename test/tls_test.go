@@ -54,7 +54,7 @@ func TestTLSSetup(t *testing.T) {
 	for range time.NewTicker(50 * time.Millisecond).C {
 		select {
 		case <-ctx.Done():
-			if ctx.Err() == context.Canceled {
+			if ctx.Err() != context.Canceled {
 				t.Fatal(ctx.Err())
 			}
 		default:
@@ -112,7 +112,7 @@ func TestTLSAuth(t *testing.T) {
 		for range time.NewTicker(50 * time.Millisecond).C {
 			select {
 			case <-ctx.Done():
-				if ctx.Err() == context.Canceled {
+				if ctx.Err() != context.Canceled {
 					t.Fatal(ctx.Err())
 				}
 			default:
@@ -149,7 +149,7 @@ func TestTLSAuth(t *testing.T) {
 		for range time.NewTicker(50 * time.Millisecond).C {
 			select {
 			case <-ctx.Done():
-				if ctx.Err() == context.Canceled {
+				if ctx.Err() != context.Canceled {
 					t.Fatal(ctx.Err())
 				}
 			default:
