@@ -1571,9 +1571,11 @@ func TestAccountsHandler(t *testing.T) {
 			&api.Account{
 				Imports: []*api.Import{
 					{
-						Stream: &api.GenericImport{
-							Account: "foo",
-							Subject: "foo.public.>",
+						Stream: &api.StreamImport{
+							GenericImport: api.GenericImport{
+								Account: "foo",
+								Subject: "foo.public.>",
+							},
 						},
 					},
 				},
