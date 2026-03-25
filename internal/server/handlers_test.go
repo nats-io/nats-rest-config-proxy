@@ -25,6 +25,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -2060,7 +2061,30 @@ echo 'Publishing script...' > ./artifact2.log
 }
 `
 	got = string(result)
-	if got != expected {
+	// Compare as structured JSON since user ordering is non-deterministic.
+	var expectedJSON, gotJSON map[string]interface{}
+	if err := json.Unmarshal([]byte(expected), &expectedJSON); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(got), &gotJSON); err != nil {
+		t.Fatal(err)
+	}
+	sortUsers := func(m map[string]interface{}) {
+		users, ok := m["users"].([]interface{})
+		if !ok {
+			return
+		}
+		sort.Slice(users, func(i, j int) bool {
+			ui := users[i].(map[string]interface{})["username"].(string)
+			uj := users[j].(map[string]interface{})["username"].(string)
+			return ui < uj
+		})
+	}
+	sortUsers(expectedJSON)
+	sortUsers(gotJSON)
+	expectedBytes, _ := json.Marshal(expectedJSON)
+	gotBytes, _ := json.Marshal(gotJSON)
+	if string(expectedBytes) != string(gotBytes) {
 		t.Errorf("Expected: %q\nGot: %q", expected, got)
 	}
 
@@ -2197,8 +2221,8 @@ func TestAccountsJetStreamHandler(t *testing.T) {
                         }`,
 			&api.Account{
 				JetStream: &api.AccountJetStreamConfig{
-					true,
-					api.AccountJetStream{
+					Enabled: true,
+					AccountJetStream: api.AccountJetStream{
 						MaxMemoryStore: intPtr(536870912),
 						MaxFileStore:   intPtr(536870912),
 						MaxConsumers:   intPtr(200),
@@ -2222,8 +2246,8 @@ func TestAccountsJetStreamHandler(t *testing.T) {
                         }`,
 			&api.Account{
 				JetStream: &api.AccountJetStreamConfig{
-					true,
-					api.AccountJetStream{
+					Enabled: true,
+					AccountJetStream: api.AccountJetStream{
 						MaxMemoryStore: intPtr(536870912),
 						MaxFileStore:   intPtr(536870912),
 						MaxConsumers:   intPtr(200),
@@ -2244,8 +2268,8 @@ func TestAccountsJetStreamHandler(t *testing.T) {
                         }`,
 			&api.Account{
 				JetStream: &api.AccountJetStreamConfig{
-					true,
-					api.AccountJetStream{
+					Enabled: true,
+					AccountJetStream: api.AccountJetStream{
 						MaxConsumers: intPtr(-1),
 						MaxStreams:   intPtr(0),
 					},

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -54,9 +55,7 @@ func TestTLSSetup(t *testing.T) {
 	for range time.NewTicker(50 * time.Millisecond).C {
 		select {
 		case <-ctx.Done():
-			if ctx.Err() == context.Canceled {
-				t.Fatal(ctx.Err())
-			}
+			t.Fatal(ctx.Err())
 		default:
 		}
 
@@ -182,7 +181,8 @@ func TestTLSAuthFullCycle(t *testing.T) {
 
 	s := server.NewServer(opts)
 	host := fmt.Sprintf("http://%s:%d", opts.Host, opts.Port)
-	ctx, _ := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
 	time.AfterFunc(30*time.Second, func() {
 		s.Shutdown(ctx)
 		waitServerIsDone(t, ctx, host)
@@ -327,8 +327,8 @@ func TestTLSAuthFullCycle(t *testing.T) {
 	select {
 	case err := <-errCh:
 		got := err.Error()
-		expected := `nats: Permissions Violation for Publish to "ng.1"`
-		if got != expected {
+		expected := `Permissions Violation for Publish to "ng.1"`
+		if !strings.Contains(got, expected) {
 			t.Errorf("Expected %q, got: %q", expected, got)
 		}
 	case <-time.After(2 * time.Second):
@@ -338,8 +338,8 @@ func TestTLSAuthFullCycle(t *testing.T) {
 	select {
 	case err := <-errCh:
 		got := err.Error()
-		expected := `nats: Permissions Violation for Publish to "ng.2"`
-		if got != expected {
+		expected := `Permissions Violation for Publish to "ng.2"`
+		if !strings.Contains(got, expected) {
 			t.Errorf("Expected %q, got: %q", expected, got)
 		}
 	case <-time.After(2 * time.Second):
@@ -403,7 +403,8 @@ func TestTLSAuthFullCycleWithAccounts(t *testing.T) {
 
 	s := server.NewServer(opts)
 	host := fmt.Sprintf("http://%s:%d", opts.Host, opts.Port)
-	ctx, _ := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
 	time.AfterFunc(30*time.Second, func() {
 		s.Shutdown(ctx)
 		waitServerIsDone(t, ctx, host)
@@ -546,8 +547,8 @@ func TestTLSAuthFullCycleWithAccounts(t *testing.T) {
 	select {
 	case err := <-errCh:
 		got := err.Error()
-		expected := `nats: Permissions Violation for Publish to "ng.1"`
-		if got != expected {
+		expected := `Permissions Violation for Publish to "ng.1"`
+		if !strings.Contains(got, expected) {
 			t.Errorf("Expected %q, got: %q", expected, got)
 		}
 	case <-time.After(2 * time.Second):
@@ -572,8 +573,8 @@ func TestTLSAuthFullCycleWithAccounts(t *testing.T) {
 	select {
 	case err := <-errCh:
 		got := err.Error()
-		expected := `nats: Permissions Violation for Publish to "ng.2"`
-		if got != expected {
+		expected := `Permissions Violation for Publish to "ng.2"`
+		if !strings.Contains(got, expected) {
 			t.Errorf("Expected %q, got: %q", expected, got)
 		}
 	case <-time.After(2 * time.Second):

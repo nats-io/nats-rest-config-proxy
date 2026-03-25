@@ -195,7 +195,7 @@ func (s *Server) HandleIdent(w http.ResponseWriter, req *http.Request) {
 		} else {
 			msg = fmt.Sprintf("User %q on global account updated\n", name)
 		}
-		fmt.Fprintf(w, msg)
+		fmt.Fprintf(w, "%s", msg)
 	case "GET":
 		s.log.Debugf("Retrieving user resource %q", name)
 
@@ -305,7 +305,7 @@ func (s *Server) HandleSnapshot(w http.ResponseWriter, req *http.Request) {
 			status = http.StatusInternalServerError
 			return
 		}
-		fmt.Fprintf(w, string(data))
+		fmt.Fprintf(w, "%s", data)
 	case "DELETE":
 		s.log.Infof("Deleting config snapshot %q", name)
 		err = s.deleteConfigSnapshot(name)
@@ -431,7 +431,7 @@ func (s *Server) HandlePerms(w http.ResponseWriter, req *http.Request) {
 			status = http.StatusInternalServerError
 			return
 		}
-		fmt.Fprintf(w, string(data))
+		fmt.Fprintf(w, "%s", data)
 		return
 	case "DELETE":
 		var conflict bool
@@ -486,7 +486,7 @@ func (s *Server) HandleIdents(w http.ResponseWriter, req *http.Request) {
 			status = http.StatusInternalServerError
 			return
 		}
-		fmt.Fprintf(w, string(data))
+		fmt.Fprintf(w, "%s", data)
 		return
 	case "DELETE":
 		err = s.deleteAllUsers()

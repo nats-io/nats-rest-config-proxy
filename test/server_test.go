@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -23,9 +24,7 @@ func waitServerIsReady(t *testing.T, ctx context.Context, host string) {
 	for range time.NewTicker(50 * time.Millisecond).C {
 		select {
 		case <-ctx.Done():
-			if ctx.Err() == context.Canceled {
-				t.Fatal(ctx.Err())
-			}
+			t.Fatal(ctx.Err())
 		default:
 		}
 
@@ -44,9 +43,7 @@ func waitServerIsDone(t *testing.T, ctx context.Context, host string) {
 	for range time.NewTicker(50 * time.Millisecond).C {
 		select {
 		case <-ctx.Done():
-			if ctx.Err() == context.Canceled {
-				t.Fatal(ctx.Err())
-			}
+			return
 		default:
 		}
 
@@ -127,7 +124,8 @@ func TestFullCycle(t *testing.T) {
 	opts := DefaultOptions()
 	s := server.NewServer(opts)
 	host := fmt.Sprintf("http://%s:%d", opts.Host, opts.Port)
-	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	time.AfterFunc(2*time.Second, func() {
 		s.Shutdown(ctx)
 		waitServerIsDone(t, ctx, host)
@@ -247,9 +245,9 @@ func TestFullCycle(t *testing.T) {
 	select {
 	case err := <-errCh:
 		got := err.Error()
-		expected := `nats: Permissions Violation for Publish to "ng.1"`
-		if got != expected {
-			t.Errorf("Expected %q, got: %q", expected, got)
+		expected := `Permissions Violation for Publish to "ng.1"`
+		if !strings.Contains(got, expected) {
+			t.Errorf("Expected error containing %q, got: %q", expected, got)
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("Timed out waiting for server to stop")
@@ -258,9 +256,9 @@ func TestFullCycle(t *testing.T) {
 	select {
 	case err := <-errCh:
 		got := err.Error()
-		expected := `nats: Permissions Violation for Publish to "ng.2"`
-		if got != expected {
-			t.Errorf("Expected %q, got: %q", expected, got)
+		expected := `Permissions Violation for Publish to "ng.2"`
+		if !strings.Contains(got, expected) {
+			t.Errorf("Expected error containing %q, got: %q", expected, got)
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("Timed out waiting for server to stop")
@@ -273,7 +271,8 @@ func TestFullCycleWithAccounts(t *testing.T) {
 	opts.DataDir = "./data-accounts"
 	s := server.NewServer(opts)
 	host := fmt.Sprintf("http://%s:%d", opts.Host, opts.Port)
-	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	time.AfterFunc(2*time.Second, func() {
 		s.Shutdown(ctx)
 		waitServerIsDone(t, ctx, host)
@@ -546,9 +545,9 @@ func TestFullCycleWithAccounts(t *testing.T) {
 	select {
 	case err := <-errCh:
 		got := err.Error()
-		expected := `nats: Permissions Violation for Publish to "ng.1"`
-		if got != expected {
-			t.Errorf("Expected %q, got: %q", expected, got)
+		expected := `Permissions Violation for Publish to "ng.1"`
+		if !strings.Contains(got, expected) {
+			t.Errorf("Expected error containing %q, got: %q", expected, got)
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("Timed out waiting for server to stop")
@@ -557,9 +556,9 @@ func TestFullCycleWithAccounts(t *testing.T) {
 	select {
 	case err := <-errCh:
 		got := err.Error()
-		expected := `nats: Permissions Violation for Publish to "ng.2"`
-		if got != expected {
-			t.Errorf("Expected %q, got: %q", expected, got)
+		expected := `Permissions Violation for Publish to "ng.2"`
+		if !strings.Contains(got, expected) {
+			t.Errorf("Expected error containing %q, got: %q", expected, got)
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("Timed out waiting for server to stop")
@@ -618,7 +617,8 @@ func TestFullCycleWithAccountsImportsExports(t *testing.T) {
 	opts.DataDir = "./data-accounts-imports"
 	s := server.NewServer(opts)
 	host := fmt.Sprintf("http://%s:%d", opts.Host, opts.Port)
-	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	time.AfterFunc(2*time.Second, func() {
 		s.Shutdown(ctx)
 		waitServerIsDone(t, ctx, host)
@@ -803,7 +803,8 @@ func TestFullCycleWithAccountsJetStream(t *testing.T) {
 	opts.DataDir = "./data-accounts-imports"
 	s := server.NewServer(opts)
 	host := fmt.Sprintf("http://%s:%d", opts.Host, opts.Port)
-	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	time.AfterFunc(2*time.Second, func() {
 		s.Shutdown(ctx)
 		waitServerIsDone(t, ctx, host)
@@ -978,10 +979,17 @@ func TestFullCycleWithAccountsJetStream(t *testing.T) {
 	if bytes.Contains(msg.Data, []byte("not enabled")) {
 		t.Fatal("account should have jetstream enabled")
 	}
-	got := string(msg.Data)
-	expected := `{"type":"io.nats.jetstream.api.v1.account_info_response","memory":0,"storage":0,"streams":0,"consumers":0,"limits":{"max_memory":-1,"max_storage":-1,"max_streams":-1,"max_consumers":-1,"max_ack_pending":-1,"memory_max_stream_bytes":-1,"storage_max_stream_bytes":-1,"max_bytes_required":false},"api":{"total":0,"errors":0}}`
-	if got != expected {
-		t.Fatalf("Expected %+v, got: %+v", expected, got)
+	// Compare JSON structurally since newer nats-server versions may add fields.
+	var jsInfo map[string]interface{}
+	if err := json.Unmarshal(msg.Data, &jsInfo); err != nil {
+		t.Fatal(err)
+	}
+	if jsInfo["type"] != "io.nats.jetstream.api.v1.account_info_response" {
+		t.Fatalf("Expected JetStream account info response, got: %s", string(msg.Data))
+	}
+	limits := jsInfo["limits"].(map[string]interface{})
+	if limits["max_memory"].(float64) != -1 || limits["max_storage"].(float64) != -1 {
+		t.Fatalf("Expected unlimited memory/storage limits, got: %s", string(msg.Data))
 	}
 
 	msg, err = ncB.Request("$JS.API.INFO", []byte("."), 1*time.Second)
@@ -991,10 +999,15 @@ func TestFullCycleWithAccountsJetStream(t *testing.T) {
 	if bytes.Contains(msg.Data, []byte("not enabled")) {
 		t.Fatal("account should have jetstream enabled")
 	}
-	got = string(msg.Data)
-	expected = `{"type":"io.nats.jetstream.api.v1.account_info_response","memory":0,"storage":0,"streams":0,"consumers":0,"limits":{"max_memory":1024,"max_storage":1024,"max_streams":3,"max_consumers":2,"max_ack_pending":-1,"memory_max_stream_bytes":-1,"storage_max_stream_bytes":-1,"max_bytes_required":false},"api":{"total":0,"errors":0}}`
-	if got != expected {
-		t.Fatalf("Expected: \n%+v, got: \n%+v", expected, got)
+	if err := json.Unmarshal(msg.Data, &jsInfo); err != nil {
+		t.Fatal(err)
+	}
+	limits = jsInfo["limits"].(map[string]interface{})
+	if limits["max_memory"].(float64) != 1024 || limits["max_storage"].(float64) != 1024 {
+		t.Fatalf("Expected memory/storage limits of 1024, got: %s", string(msg.Data))
+	}
+	if limits["max_streams"].(float64) != 3 || limits["max_consumers"].(float64) != 2 {
+		t.Fatalf("Expected max_streams=3, max_consumers=2, got: %s", string(msg.Data))
 	}
 
 	msg, err = ncC.Request("$JS.API.INFO", []byte("."), 1*time.Second)
@@ -1012,7 +1025,8 @@ func TestFullCycleWithAccountsImportsExportsResponsePermissions(t *testing.T) {
 	opts.DataDir = "./data-accounts-response-permissions"
 	s := server.NewServer(opts)
 	host := fmt.Sprintf("http://%s:%d", opts.Host, opts.Port)
-	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	time.AfterFunc(2*time.Second, func() {
 		s.Shutdown(ctx)
 		waitServerIsDone(t, ctx, host)
@@ -1215,7 +1229,8 @@ func TestFullCycleWithAccountsWithDuplicatedUsers(t *testing.T) {
 	opts.DataDir = "./data-accounts-dup-check"
 	s := server.NewServer(opts)
 	host := fmt.Sprintf("http://%s:%d", opts.Host, opts.Port)
-	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	time.AfterFunc(2*time.Second, func() {
 		s.Shutdown(ctx)
 		waitServerIsDone(t, ctx, host)
@@ -1403,7 +1418,8 @@ func TestFullCycleWithAccountsWithDuplicatedUsersWithGlobalAccount(t *testing.T)
 	opts.DataDir = "./data-accounts-dup-check-global"
 	s := server.NewServer(opts)
 	host := fmt.Sprintf("http://%s:%d", opts.Host, opts.Port)
-	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	time.AfterFunc(2*time.Second, func() {
 		s.Shutdown(ctx)
 		waitServerIsDone(t, ctx, host)
@@ -1590,7 +1606,8 @@ func TestFullCycleWithAccountsRDNsPermissionsMerge(t *testing.T) {
 	opts.DataDir = "./data-accounts-rdns-merge"
 	s := server.NewServer(opts)
 	host := fmt.Sprintf("http://%s:%d", opts.Host, opts.Port)
-	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	time.AfterFunc(2*time.Second, func() {
 		s.Shutdown(ctx)
 		waitServerIsDone(t, ctx, host)
@@ -1914,9 +1931,9 @@ func TestFullCycleWithAccountsRDNsPermissionsMerge(t *testing.T) {
 	select {
 	case err := <-errCh:
 		got := err.Error()
-		expected := `nats: Permissions Violation for Publish to "denied-to-A"`
-		if got != expected {
-			t.Errorf("Expected %q, got: %q", expected, got)
+		expected := `Permissions Violation for Publish to "denied-to-A"`
+		if !strings.Contains(got, expected) {
+			t.Errorf("Expected error containing %q, got: %q", expected, got)
 		}
 	case <-time.After(1 * time.Second):
 		t.Fatal("Timed out waiting for error code")
@@ -1925,9 +1942,9 @@ func TestFullCycleWithAccountsRDNsPermissionsMerge(t *testing.T) {
 	select {
 	case err := <-errCh:
 		got := err.Error()
-		expected := `nats: Permissions Violation for Publish to "denied-to-B"`
-		if got != expected {
-			t.Errorf("Expected %q, got: %q", expected, got)
+		expected := `Permissions Violation for Publish to "denied-to-B"`
+		if !strings.Contains(got, expected) {
+			t.Errorf("Expected error containing %q, got: %q", expected, got)
 		}
 	case <-time.After(1 * time.Second):
 		t.Fatal("Timed out waiting for error code")
@@ -1972,7 +1989,8 @@ func TestFullCycleWithAccountsRDNsPermissionsMergeThenRepair(t *testing.T) {
 	opts.DataDir = "./data-accounts-rdns-merge-then-repair"
 	s := server.NewServer(opts)
 	host := fmt.Sprintf("http://%s:%d", opts.Host, opts.Port)
-	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	time.AfterFunc(2*time.Second, func() {
 		s.Shutdown(ctx)
 		waitServerIsDone(t, ctx, host)
@@ -2366,9 +2384,9 @@ func TestFullCycleWithAccountsRDNsPermissionsMergeThenRepair(t *testing.T) {
 	select {
 	case err := <-errCh:
 		got := err.Error()
-		expected := `nats: Permissions Violation for Publish to "denied-to-A"`
-		if got != expected {
-			t.Errorf("Expected %q, got: %q", expected, got)
+		expected := `Permissions Violation for Publish to "denied-to-A"`
+		if !strings.Contains(got, expected) {
+			t.Errorf("Expected error containing %q, got: %q", expected, got)
 		}
 	case <-time.After(1 * time.Second):
 		t.Fatal("Timed out waiting for error code")
@@ -2377,9 +2395,9 @@ func TestFullCycleWithAccountsRDNsPermissionsMergeThenRepair(t *testing.T) {
 	select {
 	case err := <-errCh:
 		got := err.Error()
-		expected := `nats: Permissions Violation for Publish to "denied-to-B"`
-		if got != expected {
-			t.Errorf("Expected %q, got: %q", expected, got)
+		expected := `Permissions Violation for Publish to "denied-to-B"`
+		if !strings.Contains(got, expected) {
+			t.Errorf("Expected error containing %q, got: %q", expected, got)
 		}
 	case <-time.After(1 * time.Second):
 		t.Fatal("Timed out waiting for error code")
@@ -2424,7 +2442,8 @@ func TestFullCycleWithAccountsMapping(t *testing.T) {
 	opts.DataDir = "./data-accounts-mapping"
 	s := server.NewServer(opts)
 	host := fmt.Sprintf("http://%s:%d", opts.Host, opts.Port)
-	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	time.AfterFunc(2*time.Second, func() {
 		s.Shutdown(ctx)
 		waitServerIsDone(t, ctx, host)

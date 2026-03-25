@@ -53,7 +53,7 @@ func TestSuccessfulDNParsing(t *testing.T) {
 	for test, answer := range testcases {
 		dn, err := ParseDN(test)
 		if err != nil {
-			t.Errorf(err.Error())
+			t.Errorf("%s", err.Error())
 			continue
 		}
 		if !reflect.DeepEqual(dn, &answer) {

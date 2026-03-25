@@ -1,3 +1,6 @@
+> [!WARNING]
+> This repository has been archived and is no longer maintained. No further issues, pull requests, or updates will be accepted.
+
 [![License][License-Image]][License-Url] ![Build][Build-Status-Image] ![GitHub release (latest by date)][Release-Version-Image] [![Coveralls branch][Coverage-Image]][Coverage-Url]
 
 

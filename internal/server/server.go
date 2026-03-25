@@ -152,7 +152,7 @@ func (s *Server) ListenAndServe(addr string) error {
 			http.NotFound(w, r)
 			return
 		}
-		fmt.Fprintf(w, fmt.Sprintf("%s v%s\n", AppName, Version))
+		fmt.Fprintf(w, "%s v%s\n", AppName, Version)
 	})
 	mux.HandleFunc("/healthz", s.HandleHealthz)
 	mux.HandleFunc("/v1/auth/idents/", s.HandleIdent)

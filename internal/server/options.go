@@ -113,7 +113,7 @@ func ConfigureOptions(args []string) (*Options, error) {
 	fs := flag.NewFlagSet(AppName, flag.ExitOnError)
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: %s [options...]\n", AppName)
-		fmt.Fprintf(os.Stderr, usageStr)
+		fmt.Fprintf(os.Stderr, "%s", usageStr)
 		fmt.Fprintf(os.Stderr, "\n")
 	}
 
